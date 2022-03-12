@@ -1,11 +1,25 @@
 #include<iostream>
 #include<sys/time.h>
+#include<time.h>
 using namespace std;
+
+void col(int n, int*& sum, int**& m, int*& a)
+{
+	for (int i = 0; i < n; i++)
+	{
+		sum[i] = 0;
+		for (int j = 0; j < n; j++)
+		{
+			sum[i]+=m[j][i]*a[j];
+		}
+	}
+}
+
 int main()
 {
 	int n = 5,step = 20;
 	long count = 0;
-
+	int stime = 0;
 	struct timeval start;
 	struct timeval end;
 
@@ -13,30 +27,26 @@ int main()
 	{
 		int *sum = new int[n];
    	     	int *a = new int[n];
-        	for(int i = 0; i < n; i++)
-               		a[i]=i;
+        	srand((unsigned)time(NULL));
+        	for (int i = 0; i < n; i++)
+            	a[i] =  rand()%5+1;
       		int **m = new int*[n];
         	for(int i = 0; i < n; i++)
                 	m[i] = new int[n];
         	for(int i = 0; i < n; i++)
                 	for(int j = 0; j < n; j++)
-                        	m[i][j] = i + j;
+                        	m[i][j] = rand()%5+1;
 	
-		gettimeofday(&start,NULL);
-		gettimeofday(&end,NULL);	
-		while(((end.tv_sec+end.tv_usec/1000000.0) - (start.tv_sec+start.tv_usec/1000000.0)) < 1)
-		{
-			count++;
-			for(int i = 0; i < n; i++)
-			{		
-				sum[i] = 0;
-				for(int j = 0; j < n; j++)
-					sum[i] += m[j][i]*a[j];
-			}
-			gettimeofday(&end,NULL);
-		}
-              	
-                cout<<"n = "<<n<<"  ms:"<<(((end.tv_sec+end.tv_usec/1000000.0) - (start.tv_sec+start.tv_usec/1000000.0))/count)*1000<<endl;	
+	        while(stime<100000)
+        	{
+           	 count++;
+           	 gettimeofday(&start,NULL);
+           	 col(n,sum,m,a);
+           	 gettimeofday(&end,NULL);
+           	 stime += ((end.tv_sec*1000000.0+end.tv_usec) - (start.tv_sec*1000000.0+start.tv_usec));
+       	 	}
+	
+	        cout << "n = " << n << "  ms:" <<stime/1000.0/count<<" count:"<<count<< endl;
 
 		
 		if(n==125)
@@ -47,7 +57,7 @@ int main()
 			step = 2000;
 		if(n==11350)
 			step = 10000;
-		
+		stime = 0;
 		count = 0;
 
 	}
