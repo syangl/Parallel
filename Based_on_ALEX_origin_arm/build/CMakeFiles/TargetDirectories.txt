@@ -1,0 +1,4 @@
+/root/Labo/ALEX_origin_arm/build/CMakeFiles/rebuild_cache.dir
+/root/Labo/ALEX_origin_arm/build/CMakeFiles/edit_cache.dir
+/root/Labo/ALEX_origin_arm/build/CMakeFiles/benchmark.dir
+/root/Labo/ALEX_origin_arm/build/CMakeFiles/example.dir
