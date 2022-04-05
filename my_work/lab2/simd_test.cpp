@@ -103,30 +103,38 @@ inline int simd_search(int m, const K &key)
   return 0;
 }
 
-int main(){//simd衍生子实验，密集数组测试，规模100000
-  data_capacity_ = 100000;
-	ALEX_DATA_NODE_KEY_AT = new int [data_capacity_];
+int main(){//simd衍生子实验，密集数组测试，规模10000
+  
+  data_capacity_ = 10000;
+  ALEX_DATA_NODE_KEY_AT = new int[data_capacity_];
   srand((unsigned)time(NULL));
-  int test_key = 0, I = rand()%(100000-1+1)+1;//随机生成查找的目标键
-  int start_pos = rand()%(100000-1+1)+1;//随机生成查找的起始位置
-  for(int i = 0; i < data_capacity_; i++){
-    ALEX_DATA_NODE_KEY_AT[i] = 2*rand()%(100000-1+1)+1;
-    if(i == I){
-      cout<<" test_idex: "<<i<<endl;
-      test_key = ALEX_DATA_NODE_KEY_AT[i];//应该查到的正确键的索引
-      cout<<" test_key: "<<test_key<<endl;//应该查到的正确键
+  for (int i = 0; i < 100; i++)
+  {
+
+    int test_key = 0, I = rand() % (10000 - 1 + 1) + 1; //随机生成查找的目标键
+    int start_pos = rand() % (10000 - 1 + 1) + 1;       //随机生成查找的起始位置
+    for (int i = 0; i < data_capacity_; i++)
+    {
+      ALEX_DATA_NODE_KEY_AT[i] = 2 * rand() % (10000 - 1 + 1) + 1;
+      if (i == I)
+      {
+        cout << " test_idex: " << i << endl;
+        test_key = ALEX_DATA_NODE_KEY_AT[i];       //应该查到的正确键的索引
+        cout << " test_key: " << test_key << endl; //应该查到的正确键
+      }
     }
+    auto start_time = std::chrono::high_resolution_clock::now();
+    auto end_time = std::chrono::high_resolution_clock::now(); //测试时间
+    double per_search_time = 0.0;
+    start_time = std::chrono::high_resolution_clock::now();
+    int res_key = ALEX_DATA_NODE_KEY_AT[simd_search(start_pos, test_key)]; //实际查到的目标键值
+    end_time = std::chrono::high_resolution_clock::now();
+    per_search_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                          end_time - start_time)
+                          .count();
+    cout << " res_key: " << res_key << endl;
+    cout << " per_search_sec: " << per_search_time * 1e-9 << endl;
   }
-  auto start_time = std::chrono::high_resolution_clock::now();
-  auto end_time = std::chrono::high_resolution_clock::now();//测试时间
-  double per_search_time=0.0;
-  start_time = std::chrono::high_resolution_clock::now();
-  int res_key = ALEX_DATA_NODE_KEY_AT[simd_search(start_pos,test_key)];//实际查到的目标键值
-  end_time = std::chrono::high_resolution_clock::now();
-  per_search_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                              end_time - start_time)
-                              .count();
-  cout<<" res_key: "<<res_key<<endl;
-  cout<<" per_search_sec: "<<per_search_time*1e-9<<endl;
-	return 0;
+  return 0;
+  
 }
