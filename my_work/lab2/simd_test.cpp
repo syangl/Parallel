@@ -135,6 +135,7 @@ int main(){//simd衍生子实验，密集数组测试，规模10000
     cout << " res_key: " << res_key << endl;
     cout << " per_search_sec: " << per_search_time * 1e-9 << endl;
   }
+  delete []ALEX_DATA_NODE_KEY_AT;
   return 0;
   
 }
