@@ -1556,6 +1556,7 @@ class AlexDataNode : public AlexNode<T, P> {
   inline int exponential_search_upper_bound(int m, const K& key) {
     // Continue doubling the bound until it contains the upper bound. Then use
     // binary search.
+    //std::cout<<"expos search "<<1<<std::endl;
     int bound = 1;
     int l, r;  // will do binary search in range [l, r)
     if (key_greater(ALEX_DATA_NODE_KEY_AT(m), key)) {

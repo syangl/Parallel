@@ -1568,9 +1568,10 @@ class AlexDataNode : public AlexNode<T, P> {
 template <class K>
 inline int simd_search(int m, const K &key)
 {
+
   int size = data_capacity_;
   int32x4_t keys = vmovq_n_s32(key);
-  //cout<<vgetq_lane_s32(keys,0);cout<<vgetq_lane_s32(keys,1);cout<<vgetq_lane_s32(keys,2);cout<<vgetq_lane_s32(keys,3)<<endl;
+
   int32x4_t m_zero = vmovq_n_s32(0);
   int32x4_t m_load;                 //加载数组4个元素
   int32x4_t flags = vmovq_n_s32(0); // 比较结果标志

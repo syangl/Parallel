@@ -8,7 +8,7 @@
 #include "../core/alex.h"
 
 #include <iomanip>
-
+#include<algorithm>
 #include "flags.h"
 #include "utils.h"
 
@@ -68,6 +68,10 @@ int main(int argc, char* argv[]) {
   alex::Alex<KEY_TYPE, PAYLOAD_TYPE> index;
   std::sort(values, values + init_num_keys,
             [](auto const& a, auto const& b) { return a.first < b.first; });
+
+  // std::srand(time(NULL));
+  // std::random_shuffle(values,values + init_num_keys);
+
   index.bulk_load(values, init_num_keys);
 
   // Run workload

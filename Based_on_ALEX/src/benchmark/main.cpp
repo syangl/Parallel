@@ -8,19 +8,13 @@
 #include "../core/alex.h"
 
 #include <iomanip>
-
+#include <algorithm>
 #include "flags.h"
 #include "utils.h"
 
 // Modify these if running your own workload
 #define KEY_TYPE int//double
 #define PAYLOAD_TYPE int//double
-
-
-
-
-
-
 
 
 
@@ -77,6 +71,7 @@ int main(int argc, char* argv[]) {
   alex::Alex<KEY_TYPE, PAYLOAD_TYPE> index;
   std::sort(values, values + init_num_keys,
             [](auto const& a, auto const& b) { return a.first < b.first; });
+            
   index.bulk_load(values, init_num_keys);
 
   // Run workload

@@ -167,9 +167,12 @@ struct AlexCompare {
 /***********************************修改bitmap的x86simd部分以转换至arm可编译*****************************************/
 /******************************************************************************************************************/
 /******************************************************************************************************************/
-int _mm_popcnt_u64_repleace(uint64_t value) {
+inline int _mm_popcnt_u64_repleace(uint64_t value) {
 
     uint64_t  tmp_value = value;
+    if(tmp_value==0){
+      return 0;
+    }
     uint64_t t = 1;
     int count = 0;
     while (tmp_value != 0) {
@@ -178,31 +181,37 @@ int _mm_popcnt_u64_repleace(uint64_t value) {
         }
         tmp_value=(tmp_value >> 1);
     }
-
+    
     return count;
 
 }
 
-uint64_t _lzcnt_u64_repleace(uint64_t value) {
+inline int _lzcnt_u64_repleace(uint64_t value) {
 
     uint64_t  tmp_value = value;
+    if(tmp_value==0){
+      return 64;
+    }
     uint64_t t = 0x8000000000000000;
     int count = 0;
-    while (!(t & tmp_value)) {
+    while (!(t & tmp_value)&&tmp_value!=0) {
         count++;
-        tmp_value <<= 1;
+        tmp_value=(tmp_value << 1);
     }
     return count;
 }
 
-uint64_t _tzcnt_u64_repleace(uint64_t value) {
+inline int _tzcnt_u64_repleace(uint64_t value) {
 
     uint64_t  tmp_value = value;
+    if(tmp_value==0){
+      return 64;
+    }
     uint64_t t = 0x0000000000000001;
     int count = 0;
-    while (!(t & tmp_value)) {
+    while (!(t & tmp_value)&&tmp_value!=0) {
         count++;
-        tmp_value >>= 1;
+        tmp_value=(tmp_value >> 1);
     }
     return count;
 }
