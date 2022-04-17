@@ -101,7 +101,7 @@ inline int binary_search(int m, const K &key){
 }
 
 template <class K>
-inline int search(int m, const K &key){
+inline int linear_search(int m, const K &key){
   if(ALEX_DATA_NODE_KEY_AT[m]>key){
     for(int i = 0; i < m; i++){
         if(ALEX_DATA_NODE_KEY_AT[i]==key){
@@ -117,6 +117,70 @@ inline int search(int m, const K &key){
   }
   
 }
+
+
+template <class K>
+inline int binary_simd_search(int m, const K &key){
+  int l ,r;
+
+  if(ALEX_DATA_NODE_KEY_AT[m]>key){
+    l = 0;
+    r = m;
+  }else{
+    l = m;
+    r = data_capacity_;
+  }
+  while (l < r) {
+      int mid = l + (r - l) / 2;
+
+      if(ALEX_DATA_NODE_KEY_AT[mid]==key){
+        return mid;
+      }
+
+      if (ALEX_DATA_NODE_KEY_AT[mid]>key) {
+        r = mid - 1;
+        if(r>=3){
+          int32x4_t vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+r-3);
+          int32_t res = vaddvq_s32(vec);
+          if(res){
+            for (int i = r-3; i <= r; i++)
+            {
+              if (ALEX_DATA_NODE_KEY_AT[i]==key)
+              {
+                return i;
+              }
+            }
+          }
+        }
+      } else {
+        l = mid + 1;
+        if(l+3<data_capacity_){
+          int32x4_t vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+l);
+          int32_t res = vaddvq_s32(vec);
+          if(res){
+            for (int i = l; i <= l+3; i++)
+            {
+              if (ALEX_DATA_NODE_KEY_AT[i]==key)
+              {
+                return i;
+              }
+            }
+          }
+        }
+      }
+  }
+  return l;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -140,7 +204,7 @@ int main(){//simd衍生子实验，密集数组测试，规模100M
         cout << " test_key: " << test_key << endl; //应该查到的正确键
       }
     }
-
+    //simd_search
     auto start_time = std::chrono::high_resolution_clock::now();
     auto end_time = std::chrono::high_resolution_clock::now(); //测试时间
     double per_search_time = 0.0;
@@ -153,7 +217,8 @@ int main(){//simd衍生子实验，密集数组测试，规模100M
     cout << " simd_res_key: " << res_key << endl;
     cout << " simd_per_search_sec: " << per_search_time * 1e-9 << endl;
 
-     auto start_time2 = std::chrono::high_resolution_clock::now();
+    //binary_search
+    auto start_time2 = std::chrono::high_resolution_clock::now();
     auto end_time2 = std::chrono::high_resolution_clock::now(); //测试时间
     double per_search_time2 = 0.0;
     start_time2 = std::chrono::high_resolution_clock::now();
@@ -165,17 +230,32 @@ int main(){//simd衍生子实验，密集数组测试，规模100M
     cout << " bianry_res_key: " << res_key2 << endl;
     cout << " binary_per_search_sec: " << per_search_time2 * 1e-9 << endl;
 
+    //linear_search
     auto start_time3 = std::chrono::high_resolution_clock::now();
     auto end_time3 = std::chrono::high_resolution_clock::now(); //测试时间
     double per_search_time3 = 0.0;
     start_time3 = std::chrono::high_resolution_clock::now();
-    int res_key3 = ALEX_DATA_NODE_KEY_AT[search(start_pos, test_key)]; //实际查到的目标键值
+    int res_key3 = ALEX_DATA_NODE_KEY_AT[linear_search(start_pos, test_key)]; //实际查到的目标键值
     end_time3 = std::chrono::high_resolution_clock::now();
     per_search_time3 = std::chrono::duration_cast<std::chrono::nanoseconds>(
                           end_time3 - start_time3)
                           .count();
     cout << " res_key: " << res_key3 << endl;
-    cout << " per_search_sec: " << per_search_time3 * 1e-9 << endl;
+    cout << " linear_per_search_sec: " << per_search_time3 * 1e-9 << endl;
+
+    //binary_simd_search
+    auto start_time4 = std::chrono::high_resolution_clock::now();
+    auto end_time4 = std::chrono::high_resolution_clock::now(); //测试时间
+    double per_search_time4 = 0.0;
+    start_time4 = std::chrono::high_resolution_clock::now();
+    int res_key4 = ALEX_DATA_NODE_KEY_AT[binary_simd_search(start_pos, test_key)]; //实际查到的目标键值
+    end_time4 = std::chrono::high_resolution_clock::now();
+    per_search_time4 = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                          end_time4 - start_time4)
+                          .count();
+    cout << " binary_simd_res_key: " << res_key4 << endl;
+    cout << " binary_simd_per_search_sec: " << per_search_time4 * 1e-9 << endl;
+
   }
   delete []ALEX_DATA_NODE_KEY_AT;
   return 0;
