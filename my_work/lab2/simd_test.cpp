@@ -124,7 +124,7 @@ inline int linear_search(int m, const K &key){
 template <class K>
 inline int binary_simd_search(int m, const K &key){
   int l ,r;
-
+  int32x4_t keys = vmovq_n_s32(key);int32x4_t vec;
   if(ALEX_DATA_NODE_KEY_AT[m]>key){
     l = 0;
     r = m;
@@ -142,7 +142,8 @@ inline int binary_simd_search(int m, const K &key){
       if (ALEX_DATA_NODE_KEY_AT[mid]>key) {
         r = mid - 1;
         if(r>=3){
-          int32x4_t vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+r-3);
+          vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+r-3);
+          vec = (int32x4_t)vceqq_s32(keys, vec);
           int32_t res = vaddvq_s32(vec);
           if(res){
             for (int i = r-3; i <= r; i++)
@@ -157,7 +158,8 @@ inline int binary_simd_search(int m, const K &key){
       } else {
         l = mid + 1;
         if(l+3<data_capacity_){
-          int32x4_t vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+l);
+          vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+l);
+          vec = (int32x4_t)vceqq_s32(keys, vec);
           int32_t res = vaddvq_s32(vec);
           if(res){
             for (int i = l; i <= l+3; i++)
@@ -177,7 +179,7 @@ inline int binary_simd_search(int m, const K &key){
 ////////////////////////////////expo_simd/////////////////////////////////////
 template <class K>
 inline int binary_simd_in_expo(int l, int r, const K &key){
-
+  int32x4_t keys = vmovq_n_s32(key);int32x4_t vec;
   while (l < r) {
       int mid = l + (r - l) / 2;
 
@@ -188,7 +190,8 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
       if (ALEX_DATA_NODE_KEY_AT[mid]>key) {
         r = mid - 1;
         if(r>=3){
-          int32x4_t vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+r-3);
+          vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+r-3);
+          vec = (int32x4_t)vceqq_s32(keys, vec);
           int32_t res = vaddvq_s32(vec);
           if(res){
             for (int i = r-3; i <= r; i++)
@@ -203,7 +206,8 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
       } else {
         l = mid + 1;
         if(l+3<data_capacity_){
-          int32x4_t vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+l);
+          vec = vld1q_s32(ALEX_DATA_NODE_KEY_AT+l);
+          vec = (int32x4_t)vceqq_s32(keys, vec);
           int32_t res = vaddvq_s32(vec);
           if(res){
             for (int i = l; i <= l+3; i++)
