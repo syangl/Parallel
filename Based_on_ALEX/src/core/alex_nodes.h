@@ -1469,7 +1469,7 @@ class AlexDataNode : public AlexNode<T, P> {
     int predicted_pos = predict_position(key);
     // The last key slot with a certain value is guaranteed to be a real key
     // (instead of a gap)
-    int pos = simd_search(predicted_pos, key) - 1;    
+    int pos = exponential_search_upper_bound(predicted_pos, key) - 1;    
     if (pos < 0 || !key_equal(ALEX_DATA_NODE_KEY_AT(pos), key)) {
       return -1;
     } else {
@@ -1484,7 +1484,7 @@ class AlexDataNode : public AlexNode<T, P> {
     num_lookups_++;
     int predicted_pos = predict_position(key);
 
-    int pos = simd_search(predicted_pos, key);
+    int pos = exponential_search_lower_bound(predicted_pos, key);
     return get_next_filled_position(pos, false);
   }
 
@@ -1495,7 +1495,7 @@ class AlexDataNode : public AlexNode<T, P> {
     num_lookups_++;
     int predicted_pos = predict_position(key);
 
-    int pos = simd_search(predicted_pos, key);
+    int pos = exponential_search_upper_bound(predicted_pos, key);
     return get_next_filled_position(pos, false);
   }
 
@@ -1509,7 +1509,7 @@ class AlexDataNode : public AlexNode<T, P> {
         predict_position(key);  // first use model to get prediction
 
     // insert to the right of duplicate keys
-    int pos = simd_search(predicted_pos, key);
+    int pos = exponential_search_upper_bound(predicted_pos, key);
     if (predicted_pos <= pos || check_exists(pos)) {
       return {pos, pos};
     } else {
@@ -1558,12 +1558,12 @@ class AlexDataNode : public AlexNode<T, P> {
   int upper_bound(const K& key) {
     num_lookups_++;
     int position = predict_position(key);
-    return simd_search(position, key);
+    return exponential_search_upper_bound(position, key);
   }
 
 
   /***************************************************************************************************************************/
-  /*********************************************************指数查找改为SIMD（arm）********************************************/
+  /********************************************************SIMD（arm）********************************************************/
   /***************************************************************************************************************************/
 template <class K>
 inline int simd_search(int m, const K &key)
@@ -1634,7 +1634,53 @@ inline int simd_search(int m, const K &key)
   }
   return 0;
 }
+/////////////////////////////////二分simd////////////////////
+template <class K>
+inline int binary_simd_in_expo(int l, int r, const K &key){
+  int32x4_t keys = vmovq_n_s32(key);int32x4_t vec;
+  while (l < r) {
+      int mid = l + (r - l) / 2;
 
+      if(key_equal(key_slots_[mid],key)){
+        return mid;
+      }
+
+      if (key_greater(key_slots_[mid],key)) {
+        r = mid - 1;
+        if(r>=3){
+          vec = vld1q_s32(key_slots_+r-3);
+          vec = (int32x4_t)vceqq_s32(keys, vec);
+          int32_t res = vaddvq_s32(vec);
+          if(res){
+            for (int i = r-3; i <= r; i++)
+            {
+              if (key_equal(key_slots_[i],key))
+              {
+                return i;
+              }
+            }
+          }
+        }
+      } else {
+        l = mid + 1;
+        if(l+3<data_capacity_){
+          vec = vld1q_s32(key_slots_+l);
+          vec = (int32x4_t)vceqq_s32(keys, vec);
+          int32_t res = vaddvq_s32(vec);
+          if(res){
+            for (int i = l; i <= l+3; i++)
+            {
+              if (key_equal(key_slots_[i],key))
+              {
+                return i;
+              }
+            }
+          }
+        }
+      }
+  }
+  return l;
+}
 
 
   /**************************************************************************************************************************/
@@ -1667,7 +1713,7 @@ inline int simd_search(int m, const K &key)
       l = m + bound / 2;
       r = m + std::min<int>(bound, size);
     }
-    return binary_search_upper_bound(l, r, key);
+    return binary_simd_in_expo(l, r, key);
   }
 
   // Searches for the first position greater than key in range [l, r)
@@ -1697,7 +1743,7 @@ inline int simd_search(int m, const K &key)
   int lower_bound(const K& key) {
     num_lookups_++;
     int position = predict_position(key);
-    return simd_search(position, key);
+    return exponential_search_lower_bound(position, key);
   }
 
   // Searches for the first position no less than key, starting from position m
@@ -1726,7 +1772,7 @@ inline int simd_search(int m, const K &key)
       l = m + bound / 2;
       r = m + std::min<int>(bound, size);
     }
-    return binary_search_lower_bound(l, r, key);
+    return binary_simd_in_expo(l, r, key);
   }
 
   // Searches for the first position no less than key in range [l, r)
