@@ -12,7 +12,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     set(CMAKE_CXX_FLAGS "-O3 -xHost")
 else()
     # clang and gcc
-    set(CMAKE_CXX_FLAGS "-O3 -g -march=armv8-a -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS "-O3 -g -march=armv8-a -Wall -Wextra -pthread")
 endif()
 
 include_directories(src/core)

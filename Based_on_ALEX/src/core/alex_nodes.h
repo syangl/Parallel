@@ -14,6 +14,8 @@
 #include<arm_neon.h>
 #include "alex.h"
 
+#include <pthread.h>
+
 // Whether we store key and payload arrays separately in data nodes
 // By default, we store them separately
 #define ALEX_DATA_NODE_SEP_ARRAYS 1
@@ -57,13 +59,21 @@ class AlexNode {
   // is used
   double cost_ = 0.0;
 
+  //////////////////////////////////////////////////////////////lock////////////////////////////////////////////////////
+  pthread_rwlock_t alex_rwlock;
+  void AlexNodeLockInit(pthread_rwlock_t & alex_rwlock){
+    pthread_rwlock_init(&alex_rwlock, NULL);
+  }
+  //////////////////////////////////////////////////////////////lock////////////////////////////////////////////////////
+  
   AlexNode() = default;
-  explicit AlexNode(short level) : level_(level) {}
-  AlexNode(short level, bool is_leaf) : is_leaf_(is_leaf), level_(level) {}
+  explicit AlexNode(short level) : level_(level) {AlexNodeLockInit(alex_rwlock);/*初始化lock*/}
+  AlexNode(short level, bool is_leaf) : is_leaf_(is_leaf), level_(level) {AlexNodeLockInit(alex_rwlock);}
   virtual ~AlexNode() = default;
 
   // The size in bytes of all member variables in this class
   virtual long long node_size() const = 0;
+
 };
 
 template <class T, class P, class Alloc = std::allocator<std::pair<T, P>>>
@@ -83,10 +93,10 @@ class AlexModelNode : public AlexNode<T, P> {
   AlexNode<T, P>** children_ = nullptr;
 
   explicit AlexModelNode(const Alloc& alloc = Alloc())
-      : AlexNode<T, P>(0, false), allocator_(alloc) {}
+      : AlexNode<T, P>(0, false), allocator_(alloc){}//////////////////////////////////////////////////////////////
 
   explicit AlexModelNode(short level, const Alloc& alloc = Alloc())
-      : AlexNode<T, P>(level, false), allocator_(alloc) {}
+      : AlexNode<T, P>(level, false), allocator_(alloc) {}//////////////////////////////////////////////////////////////
 
   ~AlexModelNode() {
     if (children_ == nullptr) {
@@ -98,7 +108,8 @@ class AlexModelNode : public AlexNode<T, P> {
   AlexModelNode(const self_type& other)
       : AlexNode<T, P>(other),
         allocator_(other.allocator_),
-        num_children_(other.num_children_) {
+        num_children_(other.num_children_)
+        {//////////////////////////////////////////////////////////////
     children_ = new (pointer_allocator().allocate(other.num_children_))
         AlexNode<T, P>*[other.num_children_];
     std::copy(other.children_, other.children_ + other.num_children_,
@@ -383,14 +394,14 @@ class AlexDataNode : public AlexNode<T, P> {
 
   explicit AlexDataNode(const Compare& comp = Compare(),
                         const Alloc& alloc = Alloc())
-      : AlexNode<T, P>(0, true), key_less_(comp), allocator_(alloc) {}
+      : AlexNode<T, P>(0, true), key_less_(comp), allocator_(alloc){}//////////////////////////////////////////////////////////////
 
   AlexDataNode(short level, int max_data_node_slots,
                const Compare& comp = Compare(), const Alloc& alloc = Alloc())
       : AlexNode<T, P>(level, true),
         key_less_(comp),
         allocator_(alloc),
-        max_slots_(max_data_node_slots) {}
+        max_slots_(max_data_node_slots){}//////////////////////////////////////////////////////////////
 
   ~AlexDataNode() {
 #if ALEX_DATA_NODE_SEP_ARRAYS
@@ -432,7 +443,8 @@ class AlexDataNode : public AlexNode<T, P> {
         num_left_out_of_bounds_inserts_(other.num_left_out_of_bounds_inserts_),
         expected_avg_exp_search_iterations_(
             other.expected_avg_exp_search_iterations_),
-        expected_avg_shifts_(other.expected_avg_shifts_) {
+        expected_avg_shifts_(other.expected_avg_shifts_) //////////////////////////////////////////////////////////////
+       {
 #if ALEX_DATA_NODE_SEP_ARRAYS
     key_slots_ = new (key_allocator().allocate(other.data_capacity_))
         T[other.data_capacity_];

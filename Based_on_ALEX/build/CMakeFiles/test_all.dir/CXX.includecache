@@ -31,6 +31,10 @@ flags.h
 /root/Labo/Based_on_ALEX/src/benchmark/flags.h
 utils.h
 /root/Labo/Based_on_ALEX/src/benchmark/utils.h
+pthread.h
+-
+stdlib.h
+-
 
 /root/Labo/Based_on_ALEX/src/benchmark/utils.h
 zipf.h
@@ -107,4 +111,6 @@ arm_neon.h
 -
 alex.h
 /root/Labo/Based_on_ALEX/src/core/alex.h
+pthread.h
+-
 
