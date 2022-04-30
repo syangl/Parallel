@@ -115,14 +115,14 @@ void *threadWrite(void *param){
        std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time2 -
                                                              t_start_time2)
            .count();
-  std::cout << "t_search_time: " << t_time2 << " this_thread_count "<<test_count<< std::endl;
+  std::cout << "t_write_time: " << t_time2 << " this_thread_count "<<test_count<< std::endl;
 
   //std::cout<<" overwrite "<<id<<std::endl;
   pthread_exit(NULL);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////main:切换注释进行不同测试，两个版本的insert不应该同时执行//////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
 
   auto flags = parse_flags(argc, argv);
@@ -178,32 +178,32 @@ int main(int argc, char* argv[]) {
   std::cout << std::setprecision(3);
 
   // Do inserts
-  std::cout << "------------ start insert ----------- " << std::endl;
-  ////////////////////////////////////////////////////////pthread////////////////////////////////////////////////////////
+  //std::cout << "------------ start insert ----------- " << std::endl;
+  ////////////////////////////////////////////////////////pthread-write////////////////////////////////////////////////////////
+  // pthread_t* handles1; 
+  // handles1 = (pthread_t*)malloc(thread_write_num*sizeof(pthread_t));// 创建对应的 Handle
+  // threadParam_t* param1;
+  // param1 = (threadParam_t*)malloc(thread_write_num*sizeof(threadParam_t));
   
-  pthread_t* handles1; 
-  handles1 = (pthread_t*)malloc(thread_write_num*sizeof(pthread_t));// 创建对应的 Handle
-  threadParam_t* param1;
-  param1 = (threadParam_t*)malloc(thread_write_num*sizeof(threadParam_t));
-  
-  auto T1_start_time = std::chrono::high_resolution_clock::now();
-  for(int i = 0; i < thread_write_num; i++){
-    param1[i].t_id = i;
-    param1[i].t_num = thread_write_num; 
-    pthread_create(&handles1[i], NULL, threadWrite, (void*)&param1[i]);
-  }
+  // auto T1_start_time = std::chrono::high_resolution_clock::now();
+  // for(int i = 0; i < thread_write_num; i++){
+  //   param1[i].t_id = i;
+  //   param1[i].t_num = thread_write_num; 
+  //   pthread_create(&handles1[i], NULL, threadWrite, (void*)&param1[i]);
+  // }
 
-  for(int i = 0; i < thread_write_num; i++){
-    pthread_join(handles1[i], NULL);
-  }
-  auto T1_end_time = std::chrono::high_resolution_clock::now();
-  double insert_time =
-       std::chrono::duration_cast<std::chrono::nanoseconds>(T1_end_time -
-                                                             T1_start_time)
-           .count();
-  std::cout << "T1_time: " << insert_time << std::endl;
+  // for(int i = 0; i < thread_write_num; i++){
+  //   pthread_join(handles1[i], NULL);
+  // }
+  // auto T1_end_time = std::chrono::high_resolution_clock::now();
+  // double insert_time =
+  //      std::chrono::duration_cast<std::chrono::nanoseconds>(T1_end_time -
+  //                                                            T1_start_time)
+  //          .count();
+  // std::cout << "T1_time: " << insert_time << std::endl;
+  ///////////////////////////////////////////////////////pthread-write////////////////////////////////////////////////////////
 
-  ///////////////////////////////////////////////////////pthread////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////normal insert////////////////////////////////////////////////////////
   // auto insert_start_time = std::chrono::high_resolution_clock::now();
   // for (; i < total_num_keys; i++) {
   //   alex_index.insert(keys[i], static_cast<PAYLOAD_TYPE>(gen_payload()));
@@ -214,39 +214,42 @@ int main(int argc, char* argv[]) {
   //                                                           insert_start_time)
   //         .count();
   // std::cout << "insert_time: " << insert_time << std::endl;
-  std::cout << "insert num is: " << insert_num_keys  << ", bw is " << insert_num_keys / insert_time * 1e9 << std::endl;
+  // ////////////////////////////////////////////////////////normal insert////////////////////////////////////////////////////////
+  // std::cout << "insert num is: " << insert_num_keys  << ", bw is " << insert_num_keys / insert_time * 1e9 << std::endl;
 
-  std::cout << "------------ end insert --------------- " << std::endl;
+  // std::cout << "------------ end insert --------------- " << std::endl;
 
+  //Do search
   std::cout << "---------- start search (after insert) ---------------" << std::endl;
+  ////////////////////////////////////////////////////////pthread-read////////////////////////////////////////////////////////
+  // pthread_t* handles2; 
+  // handles2 = (pthread_t*)malloc(thread_search_num*sizeof(pthread_t));// 创建对应的 Handle
+  // threadParam_t* param2;
+  // param2 = (threadParam_t*)malloc(thread_search_num*sizeof(threadParam_t));
 
-  ////////////////////////////////////////////////////////pthread////////////////////////////////////////////////////////
-  pthread_t* handles2; 
-  handles2 = (pthread_t*)malloc(thread_search_num*sizeof(pthread_t));// 创建对应的 Handle
-  threadParam_t* param2;
-  param2 = (threadParam_t*)malloc(thread_search_num*sizeof(threadParam_t));
-
-  auto T_start_time = std::chrono::high_resolution_clock::now();
-  for(int i = 0; i < thread_search_num; i++){
-    param2[i].t_id = i;
-    param2[i].t_num = thread_search_num; 
-    pthread_create(&handles2[i], NULL, threadSearch, (void*)&param2[i]);
-  }
+  // auto T_start_time = std::chrono::high_resolution_clock::now();
+  // for(int i = 0; i < thread_search_num; i++){
+  //   param2[i].t_id = i;
+  //   param2[i].t_num = thread_search_num; 
+  //   pthread_create(&handles2[i], NULL, threadSearch, (void*)&param2[i]);
+  // }
   
-  for(int i = 0; i < thread_search_num; i++){
-    pthread_join(handles2[i], NULL);
-  }
+  // for(int i = 0; i < thread_search_num; i++){
+  //   pthread_join(handles2[i], NULL);
+  // }
 
-  auto T_end_time = std::chrono::high_resolution_clock::now();
-   double T_time =
-       std::chrono::duration_cast<std::chrono::nanoseconds>(T_end_time -
-                                                             T_start_time)
-           .count();
-   std::cout << "T_time: " << T_time << std::endl;
-   std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / T_time * 1e9 << std::endl;
-   std::cout << "---------- end search (after insert) ---------------" << std::endl;
+  // auto T_end_time = std::chrono::high_resolution_clock::now();
+  //  double T_time =
+  //      std::chrono::duration_cast<std::chrono::nanoseconds>(T_end_time -
+  //                                                            T_start_time)
+  //          .count();
+  //  std::cout << "T_time: " << T_time << std::endl;
+  //  std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / T_time * 1e9 << std::endl;
+  //  std::cout << "---------- end search (after insert) ---------------" << std::endl;
 
-  ////////////////////////////////////////////////////////pthread////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////pthread-read////////////////////////////////////////////////////////
+  
+  ////////////////////////////////////////////////////////normal search////////////////////////////////////////////////////////
   PAYLOAD_TYPE ret_search;
   PAYLOAD_TYPE* payload;
   auto read_start_time = std::chrono::high_resolution_clock::now();
@@ -265,6 +268,39 @@ int main(int argc, char* argv[]) {
    std::cout << "search_time: " << read_time << std::endl;
    std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / read_time * 1e9 << std::endl;
    std::cout << "---------- end search (after insert) ---------------" << std::endl;
+  ////////////////////////////////////////////////////////normal search////////////////////////////////////////////////////////
+
+  /////////////////////////////////////////////////////////Phtread-Read-And-Write///////////////////////////////////////////////////////////////////
+  std::cout << "---------- start Phtread-Read-And-Write ---------------" << std::endl;
+  //read
+  pthread_t* handles1 = (pthread_t*)malloc(thread_search_num*sizeof(pthread_t));// 创建对应的 Handle
+  threadParam_t* param1 = (threadParam_t*)malloc(thread_search_num*sizeof(threadParam_t));
+  //write
+  pthread_t* handles2 = (pthread_t*)malloc(thread_write_num*sizeof(pthread_t));// 创建对应的 Handle
+  threadParam_t* param2 = (threadParam_t*)malloc(thread_write_num*sizeof(threadParam_t));
+
+  //auto Read-And-Write_start_time = std::chrono::high_resolution_clock::now();
+  for(int i = 0; i < thread_search_num; i++){
+    param1[i].t_id = i;
+    param1[i].t_num = thread_search_num; 
+    param2[i].t_id = i;
+    param2[i].t_num = thread_write_num; 
+    pthread_create(&handles2[i], NULL, threadWrite, (void*)&param2[i]);//write
+    pthread_create(&handles1[i], NULL, threadSearch, (void*)&param1[i]);//read
+  }
+  
+  for(int i = 0; i < thread_search_num; i++){
+    pthread_join(handles1[i], NULL);
+  }
+  for(int i = 0; i < thread_write_num; i++){
+    pthread_join(handles2[i], NULL);
+  }
+  //auto Read-And-Write_end_time = std::chrono::high_resolution_clock::now();
+  //double Read-And-Write_time =
+       //std::chrono::duration_cast<std::chrono::nanoseconds>(Read-And-Write_end_time - Read-And-Write_start_time).count();
+   //std::cout << "Read-And-Write_time: " << Read-And-Write_time << std::endl;
+   //std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / T_time * 1e9 << std::endl;
+   std::cout << "---------- end Phtread-Read-And-Write ---------------" << std::endl;
 
 
   free(handles1);

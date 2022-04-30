@@ -1,1 +1,0 @@
-/bin/aarch64-linux-gnu-g++  -O3 -g -march=armv8-a -Wall -Wextra -pthread -O3 -DNDEBUG   CMakeFiles/test_all.dir/src/benchmark/test_all.cpp.o  -o test_all 

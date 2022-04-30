@@ -1,3 +1,0 @@
-/root/Labo/Based_on_ALEX/build/CMakeFiles/rebuild_cache.dir
-/root/Labo/Based_on_ALEX/build/CMakeFiles/edit_cache.dir
-/root/Labo/Based_on_ALEX/build/CMakeFiles/test_all.dir
