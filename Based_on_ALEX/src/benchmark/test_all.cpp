@@ -18,6 +18,8 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#include <omp.h>
+
 // Modify these if running your own workload
 #define KEY_TYPE int//uint64_t // uint64_t, double
 #define PAYLOAD_TYPE int//uint64_t
@@ -33,6 +35,7 @@ static inline unsigned long read_tsc(void) {
   return var;
 }
 
+
 /*
  * Required flags:
  * --keys_file              path to the file that contains keys
@@ -46,84 +49,75 @@ static inline unsigned long read_tsc(void) {
 
 //PAYLOAD_TYPE ret_search;
 //PAYLOAD_TYPE* payload;
-/////////////////////////////////////////////////////////search-pthread////////////////////////////////////////
+/////////////////////////////////////////////////////////pthread////////////////////////////////////////
 alex::Alex<KEY_TYPE, PAYLOAD_TYPE> alex_index;
 int total_num_keys;
 int init_num_keys;
 KEY_TYPE *keys;
 std::mt19937_64 gen_payload(std::random_device{}());
 
-int thread_search_num = 4;//读线程总数
-int thread_write_num = 4;//写线程总数
+int thread_num = 4;
 
 typedef struct{
   int t_id;
   int t_num;
   
 }threadParam_t;
-//读线程
-void *threadSearch(void *param){
-  threadParam_t * p = (threadParam_t*)param;
-  int test_count = 0;
-  int id = p->t_id;
-  int num = p->t_num;
-  PAYLOAD_TYPE ret_search;
-  PAYLOAD_TYPE* payload;
-  std::cout<<" threadSearch "<<id<<std::endl;
 
-  auto t_start_time1 = std::chrono::high_resolution_clock::now();
-
-  for (int i = id*(total_num_keys/num); i < (id+1)*(total_num_keys/num); i++){
-    payload = alex_index.get_payload(keys[i]);
-    test_count++;
-    if(payload != nullptr){
-      ret_search = *payload;
-    }
-  }
-
-     auto t_end_time1 = std::chrono::high_resolution_clock::now();
-   double t_time1 =
-       std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time1 -
-                                                             t_start_time1)
-           .count();
-   std::cout << "t_search_time: " << t_time1 << " this_thread_count "<<test_count<<std::endl;
-  //std::cout<<" overread "<<id<<std::endl;
-  pthread_exit(NULL);
-}
-//写线程
-void *threadWrite(void *param){
+void* thread(void* param){
   threadParam_t * p = (threadParam_t*)param;
   int id = p->t_id;
   int num = p->t_num;
   PAYLOAD_TYPE ret_search;
   PAYLOAD_TYPE* payload;
-
-  int test_count = 0;
-
-  std::cout<<" threadWrite "<<id<<std::endl;
   
+  //write
+  int write_count = 0;
   auto t_start_time2 = std::chrono::high_resolution_clock::now();
-
   for (int i = id*((total_num_keys-init_num_keys)/num)+init_num_keys; i < (id+1)*((total_num_keys-init_num_keys)/num)+init_num_keys; i++) {
-    //std::cout<<" insert_for "<<i-init_num_keys<<std::endl;
-    test_count++;
+    write_count++;
     alex_index.insert(keys[i], static_cast<PAYLOAD_TYPE>(gen_payload()));
   }
 
   auto t_end_time2 = std::chrono::high_resolution_clock::now();
    double t_time2 =
-       std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time2 -
-                                                             t_start_time2)
-           .count();
-  std::cout << "t_write_time: " << t_time2 << " this_thread_count "<<test_count<< std::endl;
+       std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time2 - t_start_time2).count();
+  std::cout << "t_write_time: " << t_time2 << " this_thread_count "<<write_count<< std::endl;
 
-  //std::cout<<" overwrite "<<id<<std::endl;
+  //read
+  int read_count = 0;
+  auto t_start_time1 = std::chrono::high_resolution_clock::now();
+  for (int i = id*(total_num_keys/num); i < (id+1)*(total_num_keys/num); i++){
+    read_count++;
+    payload = alex_index.get_payload(keys[i]);
+    if(payload != nullptr){
+      ret_search = *payload;
+    }
+  }
+  auto t_end_time1 = std::chrono::high_resolution_clock::now();
+  double t_time1 =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time1 - t_start_time1).count();
+  std::cout << "t_search_time: " << t_time1 << " this_thread_count " << read_count << std::endl;
+
   pthread_exit(NULL);
 }
 
 
-////////////////////////////////////////////////////////////main:切换注释进行不同测试，两个版本的insert不应该同时执行//////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////main//////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
+
+  //int test_thread = 2;
+  //std::cin>>test_thread;
+  std::cout<<"---thread num is :"<<thread_num<<std::endl;
 
   auto flags = parse_flags(argc, argv);
   std::string keys_file_path = get_required(flags, "keys_file");
@@ -160,7 +154,7 @@ int main(int argc, char* argv[]) {
 
   // Create ALEX and bulk load
   //alex::Alex<KEY_TYPE, PAYLOAD_TYPE> alex_index;
-  alex_index.lock_init();
+  //alex_index.lock_init();
 
   std::sort(values, values + init_num_keys,
             [](auto const& a, auto const& b) { return a.first < b.first; });
@@ -169,8 +163,9 @@ int main(int argc, char* argv[]) {
   }
   std::cout << "------------ bulkload finished ----------- " << std::endl;
   // Run workload
-
+#if PATTERN == 0
   int i = init_num_keys;//////////////////////////////////////////
+#endif
 
   long long insert_num_keys = total_num_keys - init_num_keys;
 
@@ -178,133 +173,129 @@ int main(int argc, char* argv[]) {
   std::cout << std::setprecision(3);
 
   // Do inserts
-  //std::cout << "------------ start insert ----------- " << std::endl;
-  ////////////////////////////////////////////////////////pthread-write////////////////////////////////////////////////////////
-  // pthread_t* handles1; 
-  // handles1 = (pthread_t*)malloc(thread_write_num*sizeof(pthread_t));// 创建对应的 Handle
-  // threadParam_t* param1;
-  // param1 = (threadParam_t*)malloc(thread_write_num*sizeof(threadParam_t));
-  
-  // auto T1_start_time = std::chrono::high_resolution_clock::now();
-  // for(int i = 0; i < thread_write_num; i++){
-  //   param1[i].t_id = i;
-  //   param1[i].t_num = thread_write_num; 
-  //   pthread_create(&handles1[i], NULL, threadWrite, (void*)&param1[i]);
-  // }
+#if PATTERN == 0
+  std::cout << "------------ start insert ----------- " << std::endl;
 
-  // for(int i = 0; i < thread_write_num; i++){
-  //   pthread_join(handles1[i], NULL);
-  // }
-  // auto T1_end_time = std::chrono::high_resolution_clock::now();
-  // double insert_time =
-  //      std::chrono::duration_cast<std::chrono::nanoseconds>(T1_end_time -
-  //                                                            T1_start_time)
-  //          .count();
-  // std::cout << "T1_time: " << insert_time << std::endl;
-  ///////////////////////////////////////////////////////pthread-write////////////////////////////////////////////////////////
+  auto insert_start_time = std::chrono::high_resolution_clock::now();
+  for (; i < total_num_keys; i++)
+  {
+    alex_index.insert(keys[i], static_cast<PAYLOAD_TYPE>(gen_payload()));
+  }
+  auto insert_end_time = std::chrono::high_resolution_clock::now();
+  double insert_time =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(insert_end_time -
+                                                           insert_start_time)
+          .count();
+  std::cout << "insert_time: " << insert_time << std::endl;
+  std::cout << "insert num is: " << insert_num_keys << ", bw is " << insert_num_keys / insert_time * 1e9 << std::endl;
 
-  ////////////////////////////////////////////////////////normal insert////////////////////////////////////////////////////////
-  // auto insert_start_time = std::chrono::high_resolution_clock::now();
-  // for (; i < total_num_keys; i++) {
-  //   alex_index.insert(keys[i], static_cast<PAYLOAD_TYPE>(gen_payload()));
-  // }
-  // auto insert_end_time = std::chrono::high_resolution_clock::now();
-  // double insert_time =
-  //     std::chrono::duration_cast<std::chrono::nanoseconds>(insert_end_time -
-  //                                                           insert_start_time)
-  //         .count();
-  // std::cout << "insert_time: " << insert_time << std::endl;
-  // ////////////////////////////////////////////////////////normal insert////////////////////////////////////////////////////////
-  // std::cout << "insert num is: " << insert_num_keys  << ", bw is " << insert_num_keys / insert_time * 1e9 << std::endl;
+  std::cout << "------------ end insert --------------- " << std::endl;
 
-  // std::cout << "------------ end insert --------------- " << std::endl;
-
-  //Do search
+  // Do search
   std::cout << "---------- start search (after insert) ---------------" << std::endl;
-  ////////////////////////////////////////////////////////pthread-read////////////////////////////////////////////////////////
-  // pthread_t* handles2; 
-  // handles2 = (pthread_t*)malloc(thread_search_num*sizeof(pthread_t));// 创建对应的 Handle
-  // threadParam_t* param2;
-  // param2 = (threadParam_t*)malloc(thread_search_num*sizeof(threadParam_t));
 
-  // auto T_start_time = std::chrono::high_resolution_clock::now();
-  // for(int i = 0; i < thread_search_num; i++){
-  //   param2[i].t_id = i;
-  //   param2[i].t_num = thread_search_num; 
-  //   pthread_create(&handles2[i], NULL, threadSearch, (void*)&param2[i]);
-  // }
-  
-  // for(int i = 0; i < thread_search_num; i++){
-  //   pthread_join(handles2[i], NULL);
-  // }
-
-  // auto T_end_time = std::chrono::high_resolution_clock::now();
-  //  double T_time =
-  //      std::chrono::duration_cast<std::chrono::nanoseconds>(T_end_time -
-  //                                                            T_start_time)
-  //          .count();
-  //  std::cout << "T_time: " << T_time << std::endl;
-  //  std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / T_time * 1e9 << std::endl;
-  //  std::cout << "---------- end search (after insert) ---------------" << std::endl;
-
-  ////////////////////////////////////////////////////////pthread-read////////////////////////////////////////////////////////
-  
-  ////////////////////////////////////////////////////////normal search////////////////////////////////////////////////////////
   PAYLOAD_TYPE ret_search;
-  PAYLOAD_TYPE* payload;
+  PAYLOAD_TYPE *payload;
   auto read_start_time = std::chrono::high_resolution_clock::now();
 
-  for (int i = 0; i < total_num_keys; i++) {
-     payload = alex_index.get_payload(keys[i]);
-     if(payload)
-       ret_search = *payload;
-
-   }
-   auto read_end_time = std::chrono::high_resolution_clock::now();
-   double read_time =
-       std::chrono::duration_cast<std::chrono::nanoseconds>(read_end_time -
-                                                             read_start_time)
-           .count();
-   std::cout << "search_time: " << read_time << std::endl;
-   std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / read_time * 1e9 << std::endl;
-   std::cout << "---------- end search (after insert) ---------------" << std::endl;
-  ////////////////////////////////////////////////////////normal search////////////////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////Phtread-Read-And-Write///////////////////////////////////////////////////////////////////
-  std::cout << "---------- start Phtread-Read-And-Write ---------------" << std::endl;
-  //read
-  pthread_t* handles1 = (pthread_t*)malloc(thread_search_num*sizeof(pthread_t));// 创建对应的 Handle
-  threadParam_t* param1 = (threadParam_t*)malloc(thread_search_num*sizeof(threadParam_t));
-  //write
-  pthread_t* handles2 = (pthread_t*)malloc(thread_write_num*sizeof(pthread_t));// 创建对应的 Handle
-  threadParam_t* param2 = (threadParam_t*)malloc(thread_write_num*sizeof(threadParam_t));
-
-  //auto Read-And-Write_start_time = std::chrono::high_resolution_clock::now();
-  for(int i = 0; i < thread_search_num; i++){
-    param1[i].t_id = i;
-    param1[i].t_num = thread_search_num; 
-    param2[i].t_id = i;
-    param2[i].t_num = thread_write_num; 
-    pthread_create(&handles2[i], NULL, threadWrite, (void*)&param2[i]);//write
-    pthread_create(&handles1[i], NULL, threadSearch, (void*)&param1[i]);//read
+  for (int i = 0; i < total_num_keys; i++)
+  {
+    payload = alex_index.get_payload(keys[i]);
+    if (payload)
+      ret_search = *payload;
   }
-  
-  for(int i = 0; i < thread_search_num; i++){
-    pthread_join(handles1[i], NULL);
+  auto read_end_time = std::chrono::high_resolution_clock::now();
+  double read_time =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(read_end_time -
+                                                           read_start_time)
+          .count();
+  std::cout << "search_time: " << read_time << std::endl;
+  std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / read_time * 1e9 << std::endl;
+  std::cout << "---------- end search (after insert) ---------------" << std::endl;
+
+#elif PATTERN == 1
+  pthread_t *handles = (pthread_t *)malloc(thread_num * sizeof(pthread_t)); // 创建对应的 Handle
+  threadParam_t *param = (threadParam_t *)malloc(thread_num * sizeof(threadParam_t));
+
+  auto start_time = std::chrono::high_resolution_clock::now();
+  for (int i = 0; i < thread_num; i++)
+  {
+    param[i].t_id = i;
+    param[i].t_num = thread_num;
+    pthread_create(&handles[i], NULL, thread, (void *)&param[i]);
   }
-  for(int i = 0; i < thread_write_num; i++){
-    pthread_join(handles2[i], NULL);
+
+  for (int i = 0; i < thread_num; i++)
+  {
+    pthread_join(handles[i], NULL);
   }
-  //auto Read-And-Write_end_time = std::chrono::high_resolution_clock::now();
-  //double Read-And-Write_time =
-       //std::chrono::duration_cast<std::chrono::nanoseconds>(Read-And-Write_end_time - Read-And-Write_start_time).count();
-   //std::cout << "Read-And-Write_time: " << Read-And-Write_time << std::endl;
-   //std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / T_time * 1e9 << std::endl;
-   std::cout << "---------- end Phtread-Read-And-Write ---------------" << std::endl;
+
+  auto end_time = std::chrono::high_resolution_clock::now();
+  double time =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+  std::cout << "time: " << time << std::endl;
+  std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / time * 1e9 << std::endl;
+
+  free(handles);
+  free(param);
+
+#elif PATTERN == 2
+  //openMP
+  //do inserts
+  std::cout << "------------ start openMP insert ----------- " << std::endl;
+    auto insert_start_time = std::chrono::high_resolution_clock::now();
+
+    #pragma omp parallel for num_threads(thread_num)
+      for (int i = init_num_keys; i < total_num_keys; i++){
+        // #if DEBUG == 2
+        //   std::cout<<"insert for-"<<std::endl;
+        // #endif
+        //alex_index.insert(keys[i], static_cast<PAYLOAD_TYPE>(gen_payload()));
+      }
+
+    auto insert_end_time = std::chrono::high_resolution_clock::now();
+    double insert_time =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(insert_end_time - insert_start_time).count();
+    std::cout << "insert_time: " << insert_time << std::endl;
+    std::cout << "insert num is: " << insert_num_keys << ", bw is " << insert_num_keys / insert_time * 1e9 << std::endl;
+
+    std::cout << "------------ end openMP insert --------------- " << std::endl;
+
+    //do search
+    std::cout << "---------- start openMP search (after insert) ---------------" << std::endl;
+
+    PAYLOAD_TYPE ret_search;
+    PAYLOAD_TYPE *payload;
+    auto read_start_time = std::chrono::high_resolution_clock::now();
+    //int count = 0; 
+    #pragma omp parallel for num_threads(thread_num)//,private(count)
+      for (int i = 0; i < total_num_keys; i++){
+        // #if DEBUG == 2
+        // #endif
+        //count++;
+	//std::cout<<count<<"---id"<<omp_get_thread_num()<<std::endl;
+        payload = alex_index.get_payload(keys[i]);
+        if (payload)
+        ret_search = *payload;
+      }
+   
+    auto read_end_time = std::chrono::high_resolution_clock::now();
+    double read_time =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(read_end_time - read_start_time).count();
+    std::cout << "search_time: " << read_time << std::endl;
+    std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / read_time * 1e9 << std::endl;
+    std::cout << "---------- end openMP search (after insert) ---------------" << std::endl;
 
 
-  free(handles1);
-  free(handles2);
+
+
+
+#endif
+  std::cout << "fail_num: " << FAIL_COUNT << std::endl;
   delete[] keys;
   delete[] values;
 }
+
+
+
+

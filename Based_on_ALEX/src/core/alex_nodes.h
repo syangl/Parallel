@@ -16,6 +16,8 @@
 
 #include <pthread.h>
 
+#include <omp.h>
+
 // Whether we store key and payload arrays separately in data nodes
 // By default, we store them separately
 #define ALEX_DATA_NODE_SEP_ARRAYS 1
@@ -62,6 +64,9 @@ class AlexNode {
   //////////////////////////////////////////////////////////////lock////////////////////////////////////////////////////
   pthread_rwlock_t alex_rwlock;
   void AlexNodeLockInit(pthread_rwlock_t & alex_rwlock){
+    #if DEBUG == 1
+      std::cout<<"initlock"<<std::endl;
+    #endif
     pthread_rwlock_init(&alex_rwlock, NULL);
   }
   //////////////////////////////////////////////////////////////lock////////////////////////////////////////////////////
@@ -1517,16 +1522,40 @@ class AlexDataNode : public AlexNode<T, P> {
   // If there are duplicate keys, the insert position will be to the right of
   // all existing keys of the same value.
   std::pair<int, int> find_insert_position(const T& key) {
+
+    #if DEBUG != 0
+      std::cout<<"---enter leaf find_insert_position---"<<std::endl;
+    #endif
+
     int predicted_pos =
         predict_position(key);  // first use model to get prediction
 
+    #if DEBUG != 0
+      std::cout<<"---after leaf predict_position(key)---"<<std::endl;
+    #endif
+
     // insert to the right of duplicate keys
     int pos = exponential_search_upper_bound(predicted_pos, key);
+
+    #if DEBUG != 0
+      std::cout<<"---after leaf exponential_search_upper_bound(predicted_pos, key)---"<<std::endl;
+    #endif
+
     if (predicted_pos <= pos || check_exists(pos)) {
+
+      #if DEBUG != 0
+        std::cout<<"---enter find_insert_position --- return {pos, pos}---"<<std::endl;
+      #endif
+
       return {pos, pos};
     } else {
       // Place inserted key as close as possible to the predicted position while
       // maintaining correctness
+
+      #if DEBUG != 0
+        std::cout<<"---enter find_insert_position --- return {get_next_filled_position(pos, true) - 1), pos}---"<<std::endl;
+      #endif
+
       return {std::min(predicted_pos, get_next_filled_position(pos, true) - 1),
               pos};
     }
@@ -1704,28 +1733,34 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
   inline int exponential_search_upper_bound(int m, const K& key) {
     // Continue doubling the bound until it contains the upper bound. Then use
     // binary search.
-    int bound = 1;
-    int l, r;  // will do binary search in range [l, r)
-    if (key_greater(ALEX_DATA_NODE_KEY_AT(m), key)) {
-      int size = m;
-      while (bound < size &&
-             key_greater(ALEX_DATA_NODE_KEY_AT(m - bound), key)) {//AT(m) > key, search from right to left
-        bound *= 2;
-        num_exp_search_iterations_++;
+
+      int bound = 1;
+      int l, r; // will do binary search in range [l, r)
+      if (key_greater(ALEX_DATA_NODE_KEY_AT(m), key))
+      {
+        int size = m;
+        while (bound < size &&
+               key_greater(ALEX_DATA_NODE_KEY_AT(m - bound), key))
+        { // AT(m) > key, search from right to left
+          bound *= 2;
+          num_exp_search_iterations_++;
+        }
+        l = m - std::min<int>(bound, size);
+        r = m - bound / 2;
       }
-      l = m - std::min<int>(bound, size); 
-      r = m - bound / 2;
-    } else {
-      int size = data_capacity_ - m;
-      while (bound < size &&
-             key_lessequal(ALEX_DATA_NODE_KEY_AT(m + bound), key)) {//AT(m)<key, search from left to right
-        bound *= 2;
-        num_exp_search_iterations_++;
+      else
+      {
+        int size = data_capacity_ - m;
+        while (bound < size &&
+               key_lessequal(ALEX_DATA_NODE_KEY_AT(m + bound), key))
+        { // AT(m)<key, search from left to right
+          bound *= 2;
+          num_exp_search_iterations_++;
+        }
+        l = m + bound / 2;
+        r = m + std::min<int>(bound, size);
       }
-      l = m + bound / 2;
-      r = m + std::min<int>(bound, size);
-    }
-    return binary_simd_in_expo(l, r, key);
+      return binary_simd_in_expo(l, r, key);
   }
 
   // Searches for the first position greater than key in range [l, r)
@@ -1840,6 +1875,10 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
   // already-existing key.
   // -1 if no insertion.
   std::pair<int, int> insert(const T& key, const P& payload) {
+
+    #if DEBUG != 0
+      std::cout<<"---enter leaf insert()---"<<std::endl;
+    #endif
     // Periodically check for catastrophe
     if (num_inserts_ % 64 == 0 && catastrophic_cost()) {
       return {2, -1};
@@ -1856,6 +1895,11 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
       if (num_keys_ > max_slots_ * kMinDensity_) {
         return {3, -1};
       }
+
+      #if DEBUG != 0
+        std::cout<<"---enter leaf insert()---Expand"<<std::endl;
+      #endif
+
       // Expand
       bool keep_left = is_append_mostly_right();
       bool keep_right = is_append_mostly_left();
@@ -1864,10 +1908,19 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
     }
 
     // Insert
+    #if DEBUG != 0
+      std::cout<<"---enter leaf insert()---find_insert_position()"<<std::endl;
+    #endif
     std::pair<int, int> positions = find_insert_position(key);
+
     int upper_bound_pos = positions.second;
     if (!allow_duplicates && upper_bound_pos > 0 &&
         key_equal(ALEX_DATA_NODE_KEY_AT(upper_bound_pos - 1), key)) {
+
+        #if DEBUG != 0
+          std::cout<<"---enter leaf insert()---return {-1, upper_bound_pos - 1}"<<std::endl;
+        #endif
+
       return {-1, upper_bound_pos - 1};
     }
     int insertion_position = positions.first;
@@ -1890,6 +1943,11 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
       min_key_ = key;
       num_left_out_of_bounds_inserts_++;
     }
+
+    #if DEBUG != 0
+      std::cout<<"---enter leaf insert()---return {0, insertion_position}"<<std::endl;
+    #endif
+
     return {0, insertion_position};
   }
 
@@ -1907,6 +1965,11 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
   // Resize the data node to the target density
   void resize(double target_density, bool force_retrain = false,
               bool keep_left = false, bool keep_right = false) {
+    
+    #if DEBUG != 0
+      std::cout << "---enter resize---" << std::endl;
+    #endif
+
     if (num_keys_ == 0) {
       return;
     }
@@ -2035,6 +2098,12 @@ inline int binary_simd_in_expo(int l, int r, const K &key){
                           static_cast<double>(num_keys_ + 1)),
                  static_cast<double>(data_capacity_));
     contraction_threshold_ = data_capacity_ * kMinDensity_;
+
+
+    #if DEBUG != 0
+      std::cout << "---end resize---" << std::endl;
+    #endif
+
   }
 
   inline bool is_append_mostly_right() const {
