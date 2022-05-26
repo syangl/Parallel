@@ -56,7 +56,7 @@ int init_num_keys;
 KEY_TYPE *keys;
 std::mt19937_64 gen_payload(std::random_device{}());
 
-int thread_num = 4;
+int thread_num = 6;
 
 typedef struct{
   int t_id;
@@ -82,7 +82,7 @@ void* thread(void* param){
   auto t_end_time2 = std::chrono::high_resolution_clock::now();
    double t_time2 =
        std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time2 - t_start_time2).count();
-  std::cout << "t_write_time: " << t_time2 << " this_thread_count "<<write_count<< std::endl;
+  std::cout <<"id "<<id<< " t_write_time: " << t_time2 << " this_thread_count "<<write_count<< std::endl;
 
   //read
   int read_count = 0;
@@ -97,7 +97,7 @@ void* thread(void* param){
   auto t_end_time1 = std::chrono::high_resolution_clock::now();
   double t_time1 =
       std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time1 - t_start_time1).count();
-  std::cout << "t_search_time: " << t_time1 << " this_thread_count " << read_count << std::endl;
+  std::cout <<"id "<<id<< " t_search_time: " << t_time1 << " this_thread_count " << read_count << std::endl;
 
   pthread_exit(NULL);
 }
@@ -295,7 +295,6 @@ int main(int argc, char* argv[]) {
   delete[] keys;
   delete[] values;
 }
-
 
 
 

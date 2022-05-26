@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -56,10 +58,11 @@ typedef unsigned __int32 uint32_t;
 /*****************模式版本切换  PATTERN == 0 is serial; PATTERN == 1 is pthread; PATTERN == 2 is openMP****************/
 #define PATTERN 1
 
-//debug 弃用，现用gdb调试
+//debug
 #define DEBUG 0 //0为不调试; 1为pthread debug模式，打印输出语句; 2为openMP debug模式，打印输出语句; 
 /*********************************************************************************************************************/
 int FAIL_COUNT = 0;
+
 
 namespace alex {
 
