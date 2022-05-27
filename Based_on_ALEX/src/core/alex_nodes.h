@@ -61,14 +61,15 @@ class AlexNode {
   // is used
   double cost_ = 0.0;
 
+  //插入版本的flag
   int flag = 0;
 
-  //////////////////////////////////////////////////////////////lock////////////////////////////////////////////////////
+  /***lock***/
   pthread_rwlock_t alex_rwlock;
   void AlexNodeLockInit(pthread_rwlock_t & alex_rwlock){
     pthread_rwlock_init(&alex_rwlock, NULL);
   }
-  //////////////////////////////////////////////////////////////lock////////////////////////////////////////////////////
+  /***lock***/
   
   AlexNode() = default;
   explicit AlexNode(short level) : level_(level) {AlexNodeLockInit(alex_rwlock);/*初始化lock*/}

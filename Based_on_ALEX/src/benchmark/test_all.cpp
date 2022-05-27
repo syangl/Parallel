@@ -56,7 +56,7 @@ int init_num_keys;
 KEY_TYPE *keys;
 std::mt19937_64 gen_payload(std::random_device{}());
 
-int thread_num = 6;
+int thread_num = 4;
 
 typedef struct{
   int t_id;
