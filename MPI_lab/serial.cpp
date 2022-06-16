@@ -61,7 +61,7 @@ int main()
     {
         A[i] = new float[MAX+1];
     }
-    int n = 1000;
+    int n = 5000;
     //init A
     initMatrix(n+1);
     

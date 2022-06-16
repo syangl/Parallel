@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <pthread.h>
 #include <semaphore.h>
+#include <cmath>
 //#include <arm_neon.h>
 #include <omp.h>
 #include "mpi.h"
@@ -68,7 +69,7 @@ void normal(int n){
 
 int main(int argc, char *argv[])
 {   
-    n = 1000;
+    n = 16;
     A = new float*[MAX+1];
     for(int i = 0; i < MAX+1; i++)
     {
@@ -93,15 +94,42 @@ int main(int argc, char *argv[])
     }
 
     MPI_Status status;
-    int r1, r2;//进程负责的矩阵子块的行号范围
-    r1 = rank*(n - n%size)/size+1;
-    if (rank != size - 1) 
+    
+    int r1 = 0, r2 = 0;//进程负责的矩阵子块的行号范围
+    //进程号越大的计算量越小，最后两个进程计算量相同
+    if (rank == 0)
     {
-        r2 = rank*(n - n%size)/size + (n - n%size)/size;
-    }else 
-    {//可优化的点
+        r1 = 1;
+        r2 = n/2;
+    }
+    if (rank != 0 && rank != size -1)
+    {
+        for (int i = 1; i <= rank;i++)
+        {
+            r1 += n/pow(2.0,i);
+        }
+        r1 += 1;
+        r2 = r1 - 1;
+        r2 += n/pow(2.0,rank+1);
+    }
+    if (rank == size - 1)
+    {
+        for (int i = 1; i <= rank;i++)
+        {
+            r1 += n/pow(2.0,i);
+        }
+        r1 += 1;
         r2 = n;
     }
+    
+    //r1 = rank*(n - n%size)/size+1;
+    // if (rank != size - 1) 
+    // {
+    //     r2 = rank*(n - n%size)/size + (n - n%size)/size;
+    // }else 
+    // {//可优化的点
+    //     r2 = n;
+    // }
     std::cout <<"rank="<<rank<<" r1="<<r1<<" r2="<<r2<<std::endl;
     //消去
     auto t_start_time = std::chrono::high_resolution_clock::now();
@@ -137,8 +165,8 @@ int main(int argc, char *argv[])
 
     //最后一个进程保存完成消去结果
     MPI_Finalize();
-    // if (rank == size-1)
-    //     printArix(n);
+    if (rank == size-1)
+         printArix(n);
 
     return 0;
 }

@@ -375,7 +375,7 @@ int main()
         ompArea();
     }
     #elif PATTERN == 5
-    {
+    {//sse_simd
         sse_simd(n);
     }
     #endif

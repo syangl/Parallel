@@ -3,9 +3,16 @@
 #include <time.h>
 #include<chrono>
 #include <iomanip>
+#include <cmath>
 #include <pthread.h>
 #include <semaphore.h>
-#include <arm_neon.h>
+#include <xmmintrin.h> //SSE
+#include <emmintrin.h> //SSE2
+#include <pmmintrin.h> //SSE3
+#include <tmmintrin.h> //SSSE3
+#include <smmintrin.h> //SSE4.1
+#include <nmmintrin.h> //SSSE4.2
+#include <immintrin.h> //AVX、AVX2
 #include <omp.h>
 #include "mpi.h"
 using namespace std;
@@ -73,11 +80,11 @@ int main(int argc, char *argv[])
     }
 
     //simd
-    float32x4_t vAkk;
-    float32x4_t vAkj; 
-    float32x4_t vAik;
-    float32x4_t vAij;
-    float32x4_t vt;
+    __m128 vAkk;
+    __m128 vAkj; 
+    __m128 vAik;
+    __m128 vAij;
+    __m128 vt;
 
     int rank, size, provided;
     //MPI_Init(&argc, &argv);
@@ -100,15 +107,42 @@ int main(int argc, char *argv[])
     }
 
     MPI_Status status;
-    int r1, r2;//进程负责的矩阵子块的行号范围
-    r1 = rank*(n - n%size)/size+1;
-    if (rank != size - 1) 
+    
+    int r1 = 0, r2 = 0;//进程负责的矩阵子块的行号范围
+    //进程号越大的计算量越小，最后两个进程计算量相同
+    if (rank == 0)
     {
-        r2 = rank*(n - n%size)/size + (n - n%size)/size;
-    }else 
-    {//可优化的点
+        r1 = 1;
+        r2 = n/2;
+    }
+    if (rank != 0 && rank != size -1)
+    {
+        for (int i = 1; i <= rank;i++)
+        {
+            r1 += n/pow(2.0,i);
+        }
+        r1 += 1;
+        r2 = r1 - 1;
+        r2 += n/pow(2.0,rank+1);
+    }
+    if (rank == size - 1)
+    {
+        for (int i = 1; i <= rank;i++)
+        {
+            r1 += n/pow(2.0,i);
+        }
+        r1 += 1;
         r2 = n;
     }
+    // int r1, r2;//进程负责的矩阵子块的行号范围
+    // r1 = rank*(n - n%size)/size+1;
+    // if (rank != size - 1) 
+    // {
+    //     r2 = rank*(n - n%size)/size + (n - n%size)/size;
+    // }else 
+    // {//可优化的点
+    //     r2 = n;
+    // }
     std::cout <<"rank="<<rank<<" r1="<<r1<<" r2="<<r2<<std::endl;
     //消去
     auto t_start_time = std::chrono::high_resolution_clock::now();
@@ -116,13 +150,13 @@ int main(int argc, char *argv[])
     {
         if (r1 <= k && k <= r2)
         {
-            vAkk = vdupq_n_f32(A[k][k]);
+            vAkk =  _mm_set1_ps(A[k][k]);
             int j;
             for (j = k+1; j + 4 <= n; j+=4)
             {//simd
-                vAkj = vld1q_f32(A[k]+4);
-                vAkj = vdivq_f32(vAkj,vAkk);
-                vst1q_f32(A[k]+j, vAkj);
+                vAkj = _mm_loadu_ps(A[k]+4);
+                vAkj = _mm_div_ps(vAkj,vAkk);
+                _mm_storeu_ps(A[k]+j, vAkj);
             }
             
             for(j = j-3; j <=n; j++)
@@ -130,12 +164,7 @@ int main(int argc, char *argv[])
                 A[k][j] = A[k][j]/A[k][k];
             }
             A[k][k] = 1.0;
-            // for (int j = k+1; j <= n; j++)
-            // {
-            //     A[k][j] = A[k][j]/A[k][k];
-            // }
-            // A[k][k] = 1.0;
-            
+
             for (int j = rank+1; j < size; j++)
             {//除法结果发送给比自己进程号大的进程做消去
                 MPI_Send(&A[k][0],n+1,MPI_FLOAT,j,j,MPI_COMM_WORLD);
@@ -147,16 +176,16 @@ int main(int argc, char *argv[])
         //omp
         #pragma omp parallel for
         for (int i = k + 1; i <= r2; i++){
-            vAik = vdupq_n_f32(A[i][k]);
+            vAik = _mm_set1_ps(A[k][k]);
             int j;
             for (j = k + 1; j + 4 <= r2; j+=4)
             {//simd
-                vAkj = vld1q_f32(A[k]+j);
-                vAij = vld1q_f32(A[i]+j);
-                vAik = vld1q_f32(A[i]+j);
-                vt = vmulxq_f32(vAkj, vAik);
-                vAij = vsubq_f32(vAij, vt);
-                vst1q_f32(A[i]+j, vAij);
+                vAkj =  _mm_loadu_ps(A[k]+j);
+                vAij =  _mm_loadu_ps(A[i]+j);
+                vAik =  _mm_loadu_ps(A[i]+j);
+                vt = _mm_mul_ps(vAkj, vAik);
+                vAij = _mm_sub_ps(vAij, vt);
+                 _mm_storeu_ps(A[i]+j, vAij);
             }
             for(j = j - 3; j <=r2; j++)
             {
@@ -164,13 +193,6 @@ int main(int argc, char *argv[])
             }
             A[i][k] = 0.0;
         }
-        // for (int i = k+1; i <= r2; i++){
-        //     for (int j = k + 1; j <= n; j++)
-        //     {
-        //         A[i][j] = A[i][j] - A[i][k]*A[k][j];
-        //     }
-        //     A[i][k] = 0.0;
-        // }
     }
     auto t_end_time = std::chrono::high_resolution_clock::now();
     double t_time =
