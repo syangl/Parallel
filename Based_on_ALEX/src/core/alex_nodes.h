@@ -13,7 +13,7 @@
 #include "alex_base.h"
 #include<arm_neon.h>
 #include "alex.h"
-
+#include <atomic>
 #include <pthread.h>
 
 #include <omp.h>
@@ -62,7 +62,8 @@ class AlexNode {
   double cost_ = 0.0;
 
   //插入版本的flag
-  int flag = 0;
+  std::atomic<int> flag;
+  std::atomic<int> use_count;
 
   /***lock***/
   pthread_rwlock_t alex_rwlock;
@@ -72,8 +73,8 @@ class AlexNode {
   /***lock***/
   
   AlexNode() = default;
-  explicit AlexNode(short level) : level_(level) {AlexNodeLockInit(alex_rwlock);/*初始化lock*/}
-  AlexNode(short level, bool is_leaf) : is_leaf_(is_leaf), level_(level) {AlexNodeLockInit(alex_rwlock);}
+  explicit AlexNode(short level) : level_(level) {AlexNodeLockInit(alex_rwlock);/*初始化lock*/use_count = 0;flag = 0;}
+  AlexNode(short level, bool is_leaf) : is_leaf_(is_leaf), level_(level) {AlexNodeLockInit(alex_rwlock);use_count = 0;flag = 0;}
   virtual ~AlexNode() = default;
 
   // The size in bytes of all member variables in this class

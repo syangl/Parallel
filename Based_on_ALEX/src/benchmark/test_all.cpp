@@ -56,7 +56,7 @@ int init_num_keys;
 KEY_TYPE *keys;
 std::mt19937_64 gen_payload(std::random_device{}());
 
-int thread_num = 4;
+int thread_num = 2;
 
 typedef struct{
   int t_id;
@@ -72,23 +72,16 @@ void* thread(void* param){
   PAYLOAD_TYPE* payload;
   
   //write
-  int write_count = 0;
-  auto t_start_time2 = std::chrono::high_resolution_clock::now();
-  for (int i = id*((total_num_keys-init_num_keys)/num)+init_num_keys; i < (id+1)*((total_num_keys-init_num_keys)/num)+init_num_keys; i++) {
-    write_count++;
+  auto t_start_time1 = std::chrono::high_resolution_clock::now();
+  int start1 = id*((total_num_keys-init_num_keys)/num)+init_num_keys;
+  int end1 = (id+1)*((total_num_keys-init_num_keys)/num)+init_num_keys;
+  for (int i = start1; i < end1; i++) {
     alex_index.insert(keys[i], static_cast<PAYLOAD_TYPE>(gen_payload()));
   }
-
-  auto t_end_time2 = std::chrono::high_resolution_clock::now();
-   double t_time2 =
-       std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time2 - t_start_time2).count();
-  std::cout <<"id "<<id<< " t_write_time: " << t_time2 << " this_thread_count "<<write_count<< std::endl;
-
   //read
-  int read_count = 0;
-  auto t_start_time1 = std::chrono::high_resolution_clock::now();
-  for (int i = id*(total_num_keys/num); i < (id+1)*(total_num_keys/num); i++){
-    read_count++;
+  int start2 = id*(total_num_keys/num);
+  int end2 = (id+1)*(total_num_keys/num);
+  for (int i = start2; i < end2; i++){
     payload = alex_index.get_payload(keys[i]);
     if(payload != nullptr){
       ret_search = *payload;
@@ -97,7 +90,7 @@ void* thread(void* param){
   auto t_end_time1 = std::chrono::high_resolution_clock::now();
   double t_time1 =
       std::chrono::duration_cast<std::chrono::nanoseconds>(t_end_time1 - t_start_time1).count();
-  std::cout <<"id "<<id<< " t_search_time: " << t_time1 << " this_thread_count " << read_count << std::endl;
+  std::cout <<"id "<<id<< " t_search_time: " << t_time1 << " read num: "<<end2-start2<<" write num: "<<end1-start1<<std::endl;
 
   pthread_exit(NULL);
 }
@@ -115,8 +108,8 @@ void* thread(void* param){
 ////////////////////////////////////////////////////////////main//////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
 
-  //int test_thread = 2;
-  //std::cin>>test_thread;
+ 
+  std::cin>>thread_num;
   std::cout<<"---thread num is :"<<thread_num<<std::endl;
 
   auto flags = parse_flags(argc, argv);
@@ -172,31 +165,19 @@ int main(int argc, char* argv[]) {
   std::cout << std::scientific;
   std::cout << std::setprecision(3);
 
-  // Do inserts
 #if PATTERN == 0
-  std::cout << "------------ start insert ----------- " << std::endl;
+  // Do inserts
+  std::cout << "------------ start serial ----------- " << std::endl;
 
-  auto insert_start_time = std::chrono::high_resolution_clock::now();
+  auto serial_start_time = std::chrono::high_resolution_clock::now();
   for (; i < total_num_keys; i++)
   {
     alex_index.insert(keys[i], static_cast<PAYLOAD_TYPE>(gen_payload()));
   }
-  auto insert_end_time = std::chrono::high_resolution_clock::now();
-  double insert_time =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(insert_end_time -
-                                                           insert_start_time)
-          .count();
-  std::cout << "insert_time: " << insert_time << std::endl;
-  std::cout << "insert num is: " << insert_num_keys << ", bw is " << insert_num_keys / insert_time * 1e9 << std::endl;
-
-  std::cout << "------------ end insert --------------- " << std::endl;
-
   // Do search
-  std::cout << "---------- start search (after insert) ---------------" << std::endl;
-
+  
   PAYLOAD_TYPE ret_search;
   PAYLOAD_TYPE *payload;
-  auto read_start_time = std::chrono::high_resolution_clock::now();
 
   for (int i = 0; i < total_num_keys; i++)
   {
@@ -204,14 +185,14 @@ int main(int argc, char* argv[]) {
     if (payload)
       ret_search = *payload;
   }
-  auto read_end_time = std::chrono::high_resolution_clock::now();
-  double read_time =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(read_end_time -
-                                                           read_start_time)
+  auto serial_end_time = std::chrono::high_resolution_clock::now();
+  double serial_time =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(serial_end_time -
+                                                           serial_start_time)
           .count();
-  std::cout << "search_time: " << read_time << std::endl;
-  std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / read_time * 1e9 << std::endl;
-  std::cout << "---------- end search (after insert) ---------------" << std::endl;
+  std::cout << "serial_time: " << serial_time << std::endl;
+  std::cout << " bw is " << (total_num_keys - 1) / serial_time * 1e9 << std::endl;
+  std::cout << "---------- end serial ---------------" << std::endl;
 
 #elif PATTERN == 1
   pthread_t *handles = (pthread_t *)malloc(thread_num * sizeof(pthread_t)); // 创建对应的 Handle
@@ -238,60 +219,19 @@ int main(int argc, char* argv[]) {
 
   free(handles);
   free(param);
-
-#elif PATTERN == 2
-  //openMP
-  //do inserts
-  std::cout << "------------ start openMP insert ----------- " << std::endl;
-    auto insert_start_time = std::chrono::high_resolution_clock::now();
-
-    #pragma omp parallel for num_threads(thread_num)
-      for (int i = init_num_keys; i < total_num_keys; i++){
-        // #if DEBUG == 2
-        //   std::cout<<"insert for-"<<std::endl;
-        // #endif
-        //alex_index.insert(keys[i], static_cast<PAYLOAD_TYPE>(gen_payload()));
-      }
-
-    auto insert_end_time = std::chrono::high_resolution_clock::now();
-    double insert_time =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(insert_end_time - insert_start_time).count();
-    std::cout << "insert_time: " << insert_time << std::endl;
-    std::cout << "insert num is: " << insert_num_keys << ", bw is " << insert_num_keys / insert_time * 1e9 << std::endl;
-
-    std::cout << "------------ end openMP insert --------------- " << std::endl;
-
-    //do search
-    std::cout << "---------- start openMP search (after insert) ---------------" << std::endl;
-
-    PAYLOAD_TYPE ret_search;
-    PAYLOAD_TYPE *payload;
-    auto read_start_time = std::chrono::high_resolution_clock::now();
-    //int count = 0; 
-    #pragma omp parallel for num_threads(thread_num)//,private(count)
-      for (int i = 0; i < total_num_keys; i++){
-        // #if DEBUG == 2
-        // #endif
-        //count++;
-	//std::cout<<count<<"---id"<<omp_get_thread_num()<<std::endl;
-        payload = alex_index.get_payload(keys[i]);
-        if (payload)
-        ret_search = *payload;
-      }
-   
-    auto read_end_time = std::chrono::high_resolution_clock::now();
-    double read_time =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(read_end_time - read_start_time).count();
-    std::cout << "search_time: " << read_time << std::endl;
-    std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / read_time * 1e9 << std::endl;
-    std::cout << "---------- end openMP search (after insert) ---------------" << std::endl;
-
-
-
-
+  while(!alex_index.delete_modelque.empty()){
+    auto tmp = alex_index.delete_modelque.front();
+    free(tmp);
+    alex_index.delete_modelque.pop();
+  }
+  while(!alex_index.delete_dataque.empty()){
+    auto tmp = alex_index.delete_dataque.front();
+    free(tmp);
+    alex_index.delete_dataque.pop();
+  }
 
 #endif
-  std::cout << "fail_num: " << FAIL_COUNT << std::endl;
+
   delete[] keys;
   delete[] values;
 }
