@@ -217,18 +217,19 @@ int main(int argc, char* argv[]) {
   std::cout << "time: " << time << std::endl;
   std::cout << "search num is: " << total_num_keys - 1 << ", bw is " << (total_num_keys - 1) / time * 1e9 << std::endl;
 
-  free(handles);
-  free(param);
+  //延迟删除
   while(!alex_index.delete_modelque.empty()){
-    auto tmp = alex_index.delete_modelque.front();
-    free(tmp);
+    auto del_node = alex_index.delete_modelque.front();
+    //delay_delete_model(del_node);
     alex_index.delete_modelque.pop();
   }
   while(!alex_index.delete_dataque.empty()){
-    auto tmp = alex_index.delete_dataque.front();
-    free(tmp);
+    auto del_node = alex_index.delete_dataque.front();
+    //delay_delete_data(del_node);
     alex_index.delete_dataque.pop();
   }
+  free(handles);
+  free(param);
 
 #endif
 

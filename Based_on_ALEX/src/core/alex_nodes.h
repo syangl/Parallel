@@ -64,6 +64,7 @@ class AlexNode {
   //插入版本的flag
   std::atomic<int> flag;
   std::atomic<int> use_count;
+  std::atomic<bool> is_delete;
 
   /***lock***/
   pthread_rwlock_t alex_rwlock;
@@ -73,8 +74,8 @@ class AlexNode {
   /***lock***/
   
   AlexNode() = default;
-  explicit AlexNode(short level) : level_(level) {AlexNodeLockInit(alex_rwlock);/*初始化lock*/use_count = 0;flag = 0;}
-  AlexNode(short level, bool is_leaf) : is_leaf_(is_leaf), level_(level) {AlexNodeLockInit(alex_rwlock);use_count = 0;flag = 0;}
+  explicit AlexNode(short level) : level_(level) {AlexNodeLockInit(alex_rwlock);/*初始化lock*/use_count = 0;flag = 0;is_delete = false;}
+  AlexNode(short level, bool is_leaf) : is_leaf_(is_leaf), level_(level) {AlexNodeLockInit(alex_rwlock);use_count = 0;flag = 0;is_delete = false;}
   virtual ~AlexNode() = default;
 
   // The size in bytes of all member variables in this class
@@ -1524,39 +1525,16 @@ class AlexDataNode : public AlexNode<T, P> {
   // all existing keys of the same value.
   std::pair<int, int> find_insert_position(const T& key) {
 
-    #if DEBUG != 0
-      std::cout<<"---enter leaf find_insert_position---"<<std::endl;
-    #endif
-
     int predicted_pos =
         predict_position(key);  // first use model to get prediction
-
-    #if DEBUG != 0
-      std::cout<<"---after leaf predict_position(key)---"<<std::endl;
-    #endif
-
     // insert to the right of duplicate keys
     int pos = exponential_search_upper_bound(predicted_pos, key);
 
-    #if DEBUG != 0
-      std::cout<<"---after leaf exponential_search_upper_bound(predicted_pos, key)---"<<std::endl;
-    #endif
-
     if (predicted_pos <= pos || check_exists(pos)) {
-
-      #if DEBUG != 0
-        std::cout<<"---enter find_insert_position --- return {pos, pos}---"<<std::endl;
-      #endif
-
       return {pos, pos};
     } else {
       // Place inserted key as close as possible to the predicted position while
       // maintaining correctness
-
-      #if DEBUG != 0
-        std::cout<<"---enter find_insert_position --- return {get_next_filled_position(pos, true) - 1), pos}---"<<std::endl;
-      #endif
-
       return {std::min(predicted_pos, get_next_filled_position(pos, true) - 1),
               pos};
     }

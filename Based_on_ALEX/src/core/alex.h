@@ -666,6 +666,17 @@ class Alex {
 
   Compare key_comp() const { return key_less_; }
 
+ //延迟删除
+ public:
+  void delay_delete_model(model_node_type* node){
+    model_node_allocator().destroy(static_cast<model_node_type*>(node));
+    model_node_allocator().deallocate(static_cast<model_node_type*>(node), 1);
+  }
+  void delay_delete_data(data_node_type* node){
+    data_node_allocator().destroy(static_cast<data_node_type*>(node));
+    data_node_allocator().deallocate(static_cast<data_node_type*>(node), 1);
+  }
+
  private:
   typename model_node_type::alloc_type model_node_allocator() {
     return typename model_node_type::alloc_type(allocator_);
@@ -680,6 +691,13 @@ class Alex {
   }
 
   void delete_node(AlexNode<T, P>* node) {
+    //后进入同一结点删除的return
+    if (node->is_delete == false){
+      node->is_delete = true;
+    }else{
+      return;
+    }
+
     if (node == nullptr) {
       return;
     } else if (node->is_leaf_) {
@@ -1352,12 +1370,12 @@ class Alex {
               }
             }
             //应该是新的叶子
-            if (parent == nullptr)
-            {//nullptr表示splittrylock失败，已经有线程分裂了，所以重新getleaf
-              leaf = get_leaf(key);
-            }else{
-              leaf = static_cast<data_node_type *>(parent->get_child_node(key));
-            }
+            // if (parent == nullptr)
+            // {//nullptr表示splittrylock失败，已经有线程分裂了，所以重新getleaf
+            //   leaf = get_leaf(key);
+            // }else{
+            // }
+            leaf = static_cast<data_node_type *>(parent->get_child_node(key));
           }
           auto end_time = std::chrono::high_resolution_clock::now();
           auto duration = end_time - start_time;
