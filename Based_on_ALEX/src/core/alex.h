@@ -692,7 +692,10 @@ class Alex {
 
   void delete_node(AlexNode<T, P>* node) {
     //后进入同一结点删除的return
-    if (node->is_delete == false){
+    if (node == nullptr) {
+      return;
+    }
+    else if (node->is_delete == false){
       node->is_delete = true;
     }else{
       return;
@@ -1249,9 +1252,6 @@ class Alex {
     #if PATTERN == 1
       /***pthread-wrlock***/
       pthread_rwlock_wrlock(&leaf->alex_rwlock);
-      if (leaf->flag != flag_old){//版本不相等则Retry
-        goto Retry;
-      }
       std::pair<int, int> ret = leaf->insert(key, payload);
       pthread_rwlock_unlock(&leaf->alex_rwlock);
       /***pthread-wrlock***/
@@ -1329,7 +1329,7 @@ class Alex {
             stats_.num_expand_and_retrains++;
           }
           else
-/*pos*/          
+      
           {
             // split data node: always try to split sideways/upwards, only split
             // downwards if necessary
@@ -1365,8 +1365,8 @@ class Alex {
               }
               else
               {
-                split_sideways(parent, bucketID, fanout_tree_depth,
-                               used_fanout_tree_nodes, reuse_model);
+                int res = split_sideways(parent, bucketID, fanout_tree_depth,
+                                          used_fanout_tree_nodes, reuse_model);                     
               }
             }
             //应该是新的叶子
@@ -1410,6 +1410,9 @@ class Alex {
       //重新插入，传递返回
       // return insert(key, payload);
     // }else{
+      if (leaf->flag != flag_old){//版本不相等则Retry
+        goto Retry;
+      }
       return {Iterator(leaf, insert_pos), true};
     // }
   }
@@ -1725,19 +1728,7 @@ class Alex {
       model_node_type* parent, int bucketID, int fanout_tree_depth,
       std::vector<fanout_tree::FTNode>& used_fanout_tree_nodes,
       bool reuse_model) {
-
-    // if (pthread_rwlock_trywrlock(&parent->alex_rwlock) != 0)
-    // {
-    //   while (true)
-    //   {
-    //     if (pthread_rwlock_trywrlock(&parent->alex_rwlock) == 0)
-    //     {
-    //       pthread_rwlock_unlock(&parent->alex_rwlock);
-    //       return nullptr;
-    //     }   
-    //   }
-    // }
-
+    
     auto leaf = static_cast<data_node_type*>(parent->children_[bucketID]);
     stats_.num_downward_splits++;
     stats_.num_downward_split_keys += leaf->num_keys_;
@@ -1784,29 +1775,16 @@ class Alex {
       update_superroot_pointer();
     }
 
-    pthread_rwlock_unlock(&parent->alex_rwlock);
-
     return new_node;
   }
 
   // Splits data node sideways in the manner determined by the fanout tree.
   // If no fanout tree is provided, then splits sideways in two.
-  void split_sideways(model_node_type* parent, int bucketID,
+  int split_sideways(model_node_type* parent, int bucketID,
                       int fanout_tree_depth,
                       std::vector<fanout_tree::FTNode>& used_fanout_tree_nodes,
                       bool reuse_model) {
     
-    // if (pthread_rwlock_trywrlock(&parent->alex_rwlock) != 0)
-    // {//给父节点加锁失败等另一个线程分裂完返回
-    //   while (true)
-    //   {
-    //     if (pthread_rwlock_trywrlock(&parent->alex_rwlock) == 0)
-    //     {
-    //       pthread_rwlock_unlock(&parent->alex_rwlock);
-    //       return;
-    //     }   
-    //   }
-    // }
 
     auto leaf = static_cast<data_node_type*>(parent->children_[bucketID]);
     stats_.num_sideways_splits++;
@@ -1848,8 +1826,7 @@ class Alex {
     delete_node(leaf);
     stats_.num_data_nodes--;
 
-    pthread_rwlock_unlock(&parent->alex_rwlock);
-
+    return 0;
   }
 
   // Create two new data nodes by equally dividing the key space of the old data

@@ -50,6 +50,7 @@ static inline unsigned long read_tsc(void) {
 //PAYLOAD_TYPE ret_search;
 //PAYLOAD_TYPE* payload;
 /////////////////////////////////////////////////////////pthread////////////////////////////////////////
+using namespace std;
 alex::Alex<KEY_TYPE, PAYLOAD_TYPE> alex_index;
 int total_num_keys;
 int init_num_keys;
@@ -96,13 +97,77 @@ void* thread(void* param){
 }
 
 
+//pthread-sort
 
+std::pair<KEY_TYPE, PAYLOAD_TYPE>* tmp_values;
+std::pair<KEY_TYPE, PAYLOAD_TYPE>* values;
 
+int	TRDNUM = 6;
+#define		TASKNUM			(init_num_keys/TRDNUM)//整除
+pthread_barrier_t trdbarr;
+void* pthread_sort(void *arg); //多线程函数
+void inside_sort(int left, int right); //快排
+void merge(void); //合并函数
 
+void* pthread_sort(void *arg){
+	int index = (long)arg;
+	inside_sort(index, index+TASKNUM-1);
+	pthread_barrier_wait(&trdbarr);
+	pthread_exit(NULL);
+}
 
+void inside_sort(int left, int right){
+ 
+	if(left >= right){
+		return ;
+	}
+ 
+	int i = left;
+	int j = right;
+	auto flag = tmp_values[left];
+ 
+	while(i < j){
+		while((j > i) && (tmp_values[j] >= flag)){
+			j--;
+		}
+		if(j > i){
+			tmp_values[i++] = tmp_values[j];
+		}
+		while((i < j) && (tmp_values[i] <= flag)){
+			i++;
+		}
+		if(i < j){
+			tmp_values[j--] = tmp_values[i];
+		}
+	}
+	tmp_values[i] = flag;
+ 
+	inside_sort(left, i);
+	inside_sort(i+1, right);
+}
 
-
-
+void merge(){
+ 
+	int index[TRDNUM];
+	int i, sidx, minidx;
+  std::pair<KEY_TYPE, PAYLOAD_TYPE> num; 
+	
+	for(i = 0; i < TRDNUM; i++){
+		index[i] = i * TASKNUM;
+	}
+	for(sidx = 0; sidx < init_num_keys; sidx++){
+    num.first = 2147483647 ;
+    num.second = 2147483647 ;
+		for(i = 0; i < TRDNUM; i++){
+			if((index[i] < (i+1)*TASKNUM) && (tmp_values[index[i]] < num)){
+				num = tmp_values[index[i]];
+				minidx = i;
+			}
+		}
+		values[sidx] = tmp_values[index[minidx]];
+		index[minidx]++;
+	}
+}
 
 
 ////////////////////////////////////////////////////////////main//////////////////////////////////////////////////
@@ -111,6 +176,8 @@ int main(int argc, char* argv[]) {
  
   std::cin>>thread_num;
   std::cout<<"---thread num is :"<<thread_num<<std::endl;
+  std::cin>>TRDNUM;
+  std::cout<<"---sort thread num is :"<<TRDNUM<<std::endl;
 
   auto flags = parse_flags(argc, argv);
   std::string keys_file_path = get_required(flags, "keys_file");
@@ -136,11 +203,12 @@ int main(int argc, char* argv[]) {
   std::random_shuffle(&keys[0], &keys[total_num_keys]);
 
   // Combine bulk loaded keys with randomly generated payloads
-  auto values = new std::pair<KEY_TYPE, PAYLOAD_TYPE>[init_num_keys];
+  /*auto*/ values = new std::pair<KEY_TYPE, PAYLOAD_TYPE>[init_num_keys];
+  tmp_values = new std::pair<KEY_TYPE, PAYLOAD_TYPE>[init_num_keys];
   //std::mt19937_64 gen_payload(std::random_device{}());
   for (int i = 0; i < init_num_keys; i++) {
-    values[i].first = keys[i];
-    values[i].second = static_cast<PAYLOAD_TYPE>(gen_payload());
+    tmp_values[i].first = keys[i];
+    tmp_values[i].second = static_cast<PAYLOAD_TYPE>(gen_payload());
   }
   
 
@@ -148,12 +216,25 @@ int main(int argc, char* argv[]) {
   // Create ALEX and bulk load
   //alex::Alex<KEY_TYPE, PAYLOAD_TYPE> alex_index;
   //alex_index.lock_init();
+  std::cout << "------------ bulkload start ----------- " << std::endl;
 
-  std::sort(values, values + init_num_keys,
-            [](auto const& a, auto const& b) { return a.first < b.first; });
+  pthread_t tid;
+  pthread_barrier_init(&trdbarr, NULL, TRDNUM+1);
+  auto sort_start = std::chrono::high_resolution_clock::now();
+	for(int i = 0; i < TRDNUM; i++){
+		pthread_create(&tid, NULL, pthread_sort, (void*)(TASKNUM*i));
+	}
+  pthread_barrier_wait(&trdbarr);
+	merge();
+  auto sort_end = std::chrono::high_resolution_clock::now(); //测试时间
+  double sort_time = std::chrono::duration_cast<std::chrono::nanoseconds>(sort_end - sort_start).count();
+  cout << "sort time: " << sort_time * 1e-9 <<"s"<< endl;
+  pthread_barrier_destroy(&trdbarr);
+
   if(init_num_keys > 1){
     alex_index.bulk_load(values, init_num_keys);
   }
+
   std::cout << "------------ bulkload finished ----------- " << std::endl;
   // Run workload
 #if PATTERN == 0
@@ -235,6 +316,7 @@ int main(int argc, char* argv[]) {
 
   delete[] keys;
   delete[] values;
+  delete[] tmp_values;
 }
 
 
