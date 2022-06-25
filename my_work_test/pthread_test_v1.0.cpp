@@ -10,7 +10,7 @@
 #include<stdlib.h>
 using namespace std;
 
-const int N_SIZE = 1000;
+const int N_SIZE = 10000;
 const int ELEMENT_RANGE = 100;
 const int THREAD_NUM = 1;
 int** test_arr;
@@ -38,7 +38,7 @@ void* test_nolock(void* param){
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-    time = time/(num*N_SIZE);//每个线程一次加锁解锁的时间
+    time = time/(float)(num*N_SIZE);//每个线程一次加锁解锁的时间
     cout <<"test_nolock "<< id <<"           nsec: "<< time << "           sec: " << time * 1e-9 << endl;
     pthread_exit(NULL);
 }
@@ -58,7 +58,7 @@ void* test_lock(void* param){
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-    time = time/(num*N_SIZE);//每个线程一次加锁解锁的时间
+    time = time/(float)(num*N_SIZE);//每个线程一次加锁解锁的时间
     cout <<"test_lock "<< id <<"              nsec: "<< time << "           sec: " << time * 1e-9 << endl;
     pthread_exit(NULL);
 }

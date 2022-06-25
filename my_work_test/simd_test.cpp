@@ -402,6 +402,9 @@ int main(){//simd衍生子实验，密集数组测试，规模100M
                           .count();
     cout << " --------------expo_bin_nonsimd_res_key--------------: " << res_key6 << endl;
     cout << " expo_bin_nonsimd_per_search_sec: " << per_search_time6 * 1e-9 << endl;
+    //pthread
+    
+
 
   }
   delete []ALEX_DATA_NODE_KEY_AT;
