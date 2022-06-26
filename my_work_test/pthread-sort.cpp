@@ -1,32 +1,30 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <limits.h>
 #include <iostream>
 #include<ctime>
 #include<chrono>
 using namespace std;
  
-#define		TOTALSIZE		10000000
+#define		TOTALSIZE		180000000
 #define		THREADNUM			8
 #define		TASKNUM			(TOTALSIZE/THREADNUM)
  
-long arr[TOTALSIZE];
-long arr_sorted[TOTALSIZE];
+int arr[TOTALSIZE];
+int arr_sorted[TOTALSIZE];
 pthread_barrier_t barr;
  
-void initArr(int seed); //用进程id作为随机数种子初始化数组
-void* pthread_sort(void *arg); //多线程函数
-void inside_sort(long left, long right); //快排
-void merge(void); //合并函数
+void init_arr(); 
+//多线程函数
+void* pthread_sort(void *arg); 
+//快排
+void inside_sort(int left, int right); 
+//合并
+void merge(void); 
  
 int main(){
 	pthread_t tid;
  
-	initArr(getpid());
+	init_arr();
 	pthread_barrier_init(&barr, NULL, THREADNUM+1);
     auto start_time2 = std::chrono::high_resolution_clock::now();
 	for(int i = 0; i < THREADNUM; i++){
@@ -48,8 +46,8 @@ int main(){
 	exit(0);
 }
  
-static void* pthread_sort(void *arg){
-	long index = (long)arg;
+void* pthread_sort(void *arg){
+	int index = (long)arg;
  
 	inside_sort(index, index+TASKNUM-1);
 	pthread_barrier_wait(&barr);
@@ -57,15 +55,15 @@ static void* pthread_sort(void *arg){
 	pthread_exit(NULL);
 }
  
-static void inside_sort(long left, long right){
+void inside_sort(int left, int right){
  
 	if(left >= right){
 		return ;
 	}
  
-	long i = left;
-	long j = right;
-	long flag = arr[left];
+	int i = left;
+	int j = right;
+	int flag = arr[left];
  
 	while(i < j){
 		while((j > i) && (arr[j] >= flag)){
@@ -87,16 +85,16 @@ static void inside_sort(long left, long right){
 	inside_sort(i+1, right);
 }
  
-static void merge(){
+void merge(){
  
-	long index[THREADNUM];
-	long sidx, num, minidx;
+	int index[THREADNUM];
+	int sidx, num, minidx;
 	
 	for(int i = 0; i < THREADNUM; i++){
 		index[i] = i * TASKNUM;
 	}
 	for(sidx = 0; sidx < TOTALSIZE; sidx++){
-		num = LONG_MAX;
+		num = 2147483647;
 		for(int i = 0; i < THREADNUM; i++){
 			if((index[i] < (i+1)*TASKNUM) && (arr[index[i]] < num)){
 				num = arr[index[i]];
@@ -106,4 +104,10 @@ static void merge(){
 		arr_sorted[sidx] = arr[index[minidx]];
 		index[minidx]++;
 	}
+}
+
+void init_arr(){
+	srand(time(NULL));
+	for (int i = 0; i < TOTALSIZE; i++)
+		arr[i] = rand() % 2147483647;
 }

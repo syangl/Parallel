@@ -7,7 +7,7 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    int size = 10000000;   //数据大小
+    int size = 180000000;   //数据大小
     cout<< "size="<<size<<endl;
     int* num = (int*)malloc(sizeof(int) * size);
 

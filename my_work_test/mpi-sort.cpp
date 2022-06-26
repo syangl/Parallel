@@ -1,7 +1,6 @@
 #include"mpi.h"
 #include<time.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include<ctime>
 #include<chrono>
 #include <iostream>
@@ -9,7 +8,7 @@
 #include <math.h>
 using namespace std;
 
-int Partition(int* data, int start, int end)   
+int parti(int* data, int start, int end)   
 {
     int temp = data[start];   
     while (start < end) {
@@ -23,12 +22,12 @@ int Partition(int* data, int start, int end)
 }
 
 //串行快排
-void QuickSort(int* data, int start, int end)  
+void quick_sort(int* data, int start, int end)  
 {
     if (start < end) {   
-        int r = Partition(data, start, end);
-        QuickSort(data, start, r - 1);
-        QuickSort(data, r + 1, end);
+        int r = parti(data, start, end);
+        quick_sort(data, start, r - 1);
+        quick_sort(data, r + 1, end);
     }
 }
 
@@ -42,20 +41,20 @@ int log(int n)
     return i;
 }
 
-void paraQuickSort(int* data, int start, int end, int m, int id, int nowID, int N)
+void paraquick_sort(int* data, int start, int end, int m, int id, int nowID, int N)
 {
     int r = end;
     int length = -1; 
     int* t;
     MPI_Status status;
     if (m == 0) {   
-        if (nowID == id) QuickSort(data, start, end);
+        if (nowID == id) quick_sort(data, start, end);
         return;
     }
     if (nowID == id) {    //进程负责分发
         while (id + (int)pow(2.0,m - 1) > N && m > 0) m--; 
         if (id + (int)pow(2.0,m - 1) < N) {  
-            r = Partition(data, start, end);
+            r = parti(data, start, end);
             length = end - r;
             MPI_Send(&length, 1, MPI_INT, id + (int)pow(2.0,m - 1), nowID, MPI_COMM_WORLD);
             if (length > 0)   //将后部数据发送给id+2^(m-1)进程
@@ -66,18 +65,17 @@ void paraQuickSort(int* data, int start, int end, int m, int id, int nowID, int 
         MPI_Recv(&length, 1, MPI_INT, id, id, MPI_COMM_WORLD, &status);
         if (length > 0) {   
             t = (int*)malloc(length * sizeof(int));
-            if (t == 0) printf("Malloc memory error!");
             MPI_Recv(t, length, MPI_INT, id, id, MPI_COMM_WORLD, &status);
         }
     }
     int j = r - 1 - start;
     MPI_Bcast(&j, 1, MPI_INT, id, MPI_COMM_WORLD);
     if (j > 0)    
-        paraQuickSort(data, start, r - 1, m - 1, id, nowID, N);  
+        paraquick_sort(data, start, r - 1, m - 1, id, nowID, N);  
     j = length;
     MPI_Bcast(&j, 1, MPI_INT, id, MPI_COMM_WORLD);
     if (j > 0)    
-        paraQuickSort(t, 0, length - 1, m - 1, id + (int)pow(2.0,m - 1), nowID, N);  
+        paraquick_sort(t, 0, length - 1, m - 1, id + (int)pow(2.0,m - 1), nowID, N);  
     if ((nowID == id + (int)pow(2.0,m - 1)) && (length > 0))     
         MPI_Send(t, length, MPI_INT, id, id + (int)pow(2.0,m - 1), MPI_COMM_WORLD);
     if ((nowID == id) && id + (int)pow(2.0,m - 1) < N && (length > 0))     
@@ -88,7 +86,7 @@ int main(int argc, char* argv[])
 {
     int* data;
     int rank, size;
-    int n = 10000000;   //数组长度
+    int n = 100000000;   //数组长度
     cout<<"n="<<n<<endl;
     double start_time, end_time;
     MPI_Status status;
@@ -104,7 +102,7 @@ int main(int argc, char* argv[])
     int m = log(size);  //第一次分发给第2^(m-1)个进程
     start_time = MPI_Wtime();
     MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);  //广播
-    paraQuickSort(data, 0, n - 1, m, 0, rank, size); 
+    paraquick_sort(data, 0, n - 1, m, 0, rank, size); 
     end_time = MPI_Wtime();
 
     if (rank == 0) {  

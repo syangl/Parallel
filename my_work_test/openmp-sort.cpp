@@ -4,50 +4,54 @@
 #include <iostream>
 using namespace std;
 
-int Partition(int* data, int start, int end)   //划分数据
+int parti(int* values, int start, int end)   
 {
-    int temp = data[start];   //以第一个元素为基准
+    int temp = values[start];  
     while (start < end) {
-        while (start < end && data[end] >= temp)end--;   //找到第一个比基准小的数
-        data[start] = data[end];
-        while (start < end && data[start] <= temp)start++;    //找到第一个比基准大的数
-        data[end] = data[start];
+        while (start < end && values[end] >= temp)end--;  
+        values[start] = values[end];
+        while (start < end && values[start] <= temp)start++;    
+        values[end] = values[start];
     }
-    data[start] = temp;   //以基准作为分界线
+    values[start] = temp;  
     return start;
 }
-
-void quickSort(int* data, int start, int end)  //并行快排
+//并行排序
+void quick_sort(int* values, int start, int end)  
 {
     if (start < end) {
-        int pos = Partition(data, start, end);
-        #pragma omp parallel sections    //设置并行区域
+        int pos = parti(values, start, end);
+        #pragma omp parallel sections
         {
-            #pragma omp section          //该区域对前部分数据进行排序
-            quickSort(data, start, pos - 1);
-            #pragma omp section          //该区域对后部分数据进行排序
-            quickSort(data, pos + 1, end);
+            #pragma omp section  
+            //该区域对前部分数据进行排序        
+            quick_sort(values, start, pos - 1);
+            #pragma omp section          
+            //该区域对后部分数据进行排序
+            quick_sort(values, pos + 1, end);
         }
     }
 }
 
 int main(int argc, char* argv[])
 {
-    int n = 4;   //线程数
-    int size = 10000000;   //数据大小
+    //线程数
+    int n = 4;   
+    int size = 180000000;   
     int* num = (int*)malloc(sizeof(int) * size);
 
-    double starttime = omp_get_wtime();
-    srand(time(NULL) + rand());   //生成随机数组
+    double start_time = omp_get_wtime(); 
+    srand(time(NULL) + rand());  
     for (int i = 0; i < size; i++)
         num[i] = rand();
-    omp_set_num_threads(n);   //设置线程数
-    quickSort(num, 0, size - 1);   //并行快排
-    double endtime = omp_get_wtime();
+    //设置线程数
+    omp_set_num_threads(n);   
+    quick_sort(num, 0, size - 1);   
+    double end_time = omp_get_wtime();
 
-    for (int i = 0; i < 10 && i<size; i++)//输出前十个元素
+    for (int i = 0; i < 10 && i<size; i++)
         cout<<num[i]<<" "; 
     cout<<endl;
-    cout<<" 并行时间："<<endtime - starttime<<"s"<<endl;
+    cout<<" 并行时间："<<end_time - start_time<<"s"<<endl;
     return 0;
 }
